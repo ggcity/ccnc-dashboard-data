@@ -46,7 +46,6 @@ Monday.com API → GitHub Actions (daily) → data.json → GitHub Pages → Squ
 | `fetch-data.js` | Node.js script that calls the Monday.com API and writes `data.json` |
 | `.github/workflows/update-data.yml` | GitHub Actions workflow — runs daily and on manual trigger |
 | `squarespace-code-block.html` | The dashboard embed — paste contents into a Squarespace Code Block |
-| `data.json` | Latest data snapshot served via GitHub Pages (auto-generated, do not edit manually) |
 
 ## Security
 
