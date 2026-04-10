@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CCNC Performance Dashboard</title>
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* City colors — bed count + city comparisons ONLY */
+      --gg: #3CB43C;
+      --wm: #F07800;
+      --fv: #1AAAC8;
+
+      /* Categorical palette — all other charts */
+      --c1: #2C4A6E;   /* deep navy   */
+      --c2: #E8622A;   /* warm coral  */
+      --c3: #2A8F7F;   /* teal        */
+      --c4: #C8963A;   /* amber       */
+
+      /* UI tokens */
+      --text:   #1a1a1a;
+      --muted:  #666;
+      --border: #ddd;
+      --bg:     #F7F7F6;
+      --white:  #fff;
+      --accent: #F07800;
+
+      /* Spacing */
+      --gap: 12px;
+      --radius: 8px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: transparent;
+      color: var(--text);
+      -webkit-text-size-adjust: 100%;
+    }
+
+    /* ── Loading ── */
+    .loader-wrap {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 260px; gap: 18px;
+    }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-text { font-size: 14px; color: var(--muted); }
+
+    /* ── City legend ── */
+    .city-key {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      padding: 12px 16px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 1.25rem;
+    }
+    .city-key-item { display: flex; align-items: center; gap: 8px; }
+    /* Swatch with pattern overlay for color-blind support */
+    .city-swatch {
+      width: 16px; height: 16px;
+      border-radius: 3px; position: relative;
+      flex-shrink: 0;
+    }
+    .city-swatch::after {
+      content: ''; position: absolute;
+      inset: 0; border-radius: 3px;
+      opacity: 0.4;
+    }
+    .city-swatch.gg::after { background: repeating-linear-gradient(45deg,#000 0,#000 1px,transparent 0,transparent 4px); }
+    .city-swatch.wm::after { background: repeating-linear-gradient(-45deg,#000 0,#000 1px,transparent 0,transparent 4px); }
+    .city-name { font-size: 14px; font-weight: 600; color: var(--text); }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 1.5rem;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      font-size: 15px; font-weight: 600;
+      padding: 14px 24px; /* 44px+ touch target */
+      border: none; background: transparent;
+      color: var(--muted); cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      white-space: nowrap; flex-shrink: 0;
+      transition: color 0.15s;
+      min-height: 44px; /* ADA touch target */
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab:focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: -3px;
+      border-radius: 2px;
+    }
+
+    /* ── Stat cards ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--gap);
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 700px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 340px) { .stats { grid-template-columns: 1fr; } }
+
+    .stat {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.1rem 0.9rem;
+    }
+    .stat-label {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--muted); margin-bottom: 6px;
+    }
+    .stat-value {
+      font-size: 38px; font-weight: 300;
+      color: var(--text); line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    @media (max-width: 700px) { .stat-value { font-size: 32px; } }
+    .stat-sub { font-size: 11px; color: #aaa; margin-top: 5px; }
+
+    /* ── Section heading ── */
+    .section-head {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--muted); padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1rem;
+    }
+
+    /* ── Chart grid ──
+       KEY FIX: use responsive:true + percentage-height containers.
+       Each .chart-card gets a fixed aspect-ratio wrapper so the canvas
+       always has real CSS dimensions regardless of when JS runs. ── */
+    .charts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap);
+      margin-bottom: 1.75rem;
+    }
+    @media (max-width: 700px) { .charts { grid-template-columns: 1fr; } }
+
+    .chart-card { grid-column: span 1; }
+    .chart-card.full { grid-column: 1 / -1; }
+    @media (max-width: 700px) {
+      .chart-card, .chart-card.full { grid-column: 1; }
+    }
+
+    .chart-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.25rem 1rem;
+      overflow: hidden;
+    }
+    .chart-label {
+      font-size: 12px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.07em;
+      color: var(--text); margin-bottom: 14px;
+      id: attr(data-for);
+    }
+
+    /* The canvas wrapper gives Chart.js a real CSS height to measure */
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+    }
+    /* Default heights by chart type */
+    .canvas-wrap.h-doughnut { height: 220px; }
+    .canvas-wrap.h-bar      { height: 220px; }
+    .canvas-wrap.h-hbar     { height: 200px; }
+    .canvas-wrap.h-age      { height: 200px; }
+    @media (max-width: 700px) {
+      .canvas-wrap.h-doughnut { height: 200px; }
+      .canvas-wrap.h-bar      { height: 200px; }
+      .canvas-wrap.h-hbar     { height: 180px; }
+      .canvas-wrap.h-age      { height: 180px; }
+    }
+    @media (max-width: 380px) {
+      .canvas-wrap.h-doughnut { height: 180px; }
+      .canvas-wrap.h-bar      { height: 170px; }
+      .canvas-wrap.h-hbar     { height: 160px; }
+      .canvas-wrap.h-age      { height: 160px; }
+    }
+
+    /* Canvas fills its wrapper fully — Chart.js responsive:true handles the rest */
+    .canvas-wrap canvas {
+      position: absolute;
+      inset: 0;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex; flex-wrap: wrap;
+      gap: 10px; margin-top: 12px;
+    }
+    .leg {
+      display: flex; align-items: center;
+      gap: 6px; font-size: 12px; font-weight: 500;
+      color: var(--text);
+    }
+    .leg-sq {
+      width: 12px; height: 12px;
+      border-radius: 2px; flex-shrink: 0;
+    }
+
+    /* ── Focus styles (ADA) ── */
+    :focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+
+    /* ── Reduced motion (ADA) ── */
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; border-top-color: var(--muted); }
+      * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+
+    /* ── High contrast support (ADA) ── */
+    @media (forced-colors: active) {
+      .stat { border: 2px solid ButtonText; }
+      .chart-card { border: 2px solid ButtonText; }
+      .tab.active { border-bottom: 4px solid Highlight; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loader" class="loader-wrap" role="status" aria-live="polite" aria-label="Loading dashboard data">
+  <div class="spinner" aria-hidden="true"></div>
+  <span class="loader-text">Loading data...</span>
+</div>
+
+<!-- Dashboard -->
+<div id="content" style="display:none;" id="main-content">
+
+  <!-- City color key -->
+  <div class="city-key" role="note" aria-label="City color legend">
+    <div class="city-key-item">
+      <div class="city-swatch gg" style="background:var(--gg)" aria-hidden="true"></div>
+      <span class="city-name">Garden Grove</span>
+    </div>
+    <div class="city-key-item">
+      <div class="city-swatch wm" style="background:var(--wm)" aria-hidden="true"></div>
+      <span class="city-name">Westminster</span>
+    </div>
+    <div class="city-key-item">
+      <div class="city-swatch" style="background:var(--fv)" aria-hidden="true"></div>
+      <span class="city-name">Fountain Valley</span>
+    </div>
+    <span id="last-updated" style="margin-left:auto;font-size:11px;color:var(--muted);align-self:center;"></span>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs" role="tablist" aria-label="Dashboard views">
+    <button class="tab active" role="tab" aria-selected="true"  aria-controls="tab-current"   id="btn-current"   onclick="switchTab('current',this)">Current snapshot</button>
+    <button class="tab"        role="tab" aria-selected="false" aria-controls="tab-inception" id="btn-inception" onclick="switchTab('inception',this)">Since inception</button>
+  </div>
+
+  <!-- Current tab -->
+  <div id="tab-current" role="tabpanel" aria-labelledby="btn-current">
+    <div class="stats" id="stats-current" aria-label="Key figures"></div>
+    <div class="section-head" aria-hidden="true">Resident breakdown</div>
+    <div class="charts" id="charts-a"></div>
+    <div class="section-head" aria-hidden="true">Housing &amp; services</div>
+    <div class="charts" id="charts-b"></div>
+  </div>
+
+  <!-- Inception tab -->
+  <div id="tab-inception" role="tabpanel" aria-labelledby="btn-inception" style="display:none;">
+    <div class="stats" id="stats-inception" aria-label="Cumulative figures"></div>
+    <div class="section-head" aria-hidden="true">Program outcomes</div>
+    <div class="charts" id="charts-c"></div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ── Data source — GitHub Pages  ──
+const DATA_URL = 'https://ggcity.github.io/ccnc-dashboard-data/data.json';
+// ─────────────────────────────────────────────────────────────────────────
+
+// City colors — ONLY for city-specific charts
+const GG = '#3CB43C';
+const WM = '#F07800';
+const FV = '#1AAAC8';
+
+// Categorical palette (color-blind distinguishable via hue + lightness)
+const C1  = '#2C4A6E'; // navy
+const C2  = '#E8622A'; // coral
+const C3  = '#2A8F7F'; // teal
+const C4  = '#C8963A'; // amber
+const CAT = [C1, C2, C3, C4];
+const BAR = '#2C4A6E'; // single-series bars
+
+let charts     = [];
+let currentData = null;
+let lastWidth   = window.innerWidth; // track width changes only, not height
+
+// ── Helpers ──────────────────────────────────────────
+function n(v) { return parseFloat(v) || 0; }
+function getVal(item, col) {
+  const c = item.column_values.find(x => x.id === col);
+  return c ? n(c.text) : 0;
+}
+function destroyCharts() {
+  charts.forEach(c => { try { c.destroy(); } catch(e) {} });
+  charts = [];
+}
+function showContent() {
+  document.getElementById('loader').style.display  = 'none';
+  document.getElementById('content').style.display = 'block';
+}
+
+// Keyboard-accessible tab switching
+function switchTab(t, btn) {
+  ['current','inception'].forEach(id => {
+    const panel = document.getElementById('tab-'+id);
+    const tabBtn = document.getElementById('btn-'+id);
+    const show = id === t;
+    panel.style.display = show ? 'block' : 'none';
+    tabBtn.classList.toggle('active', show);
+    tabBtn.setAttribute('aria-selected', show ? 'true' : 'false');
+  });
+  // Redraw charts in newly visible tab
+  if (currentData) setTimeout(() => drawAllCharts(currentData), 50);
+}
+
+// Keyboard navigation for tabs (arrow keys per ARIA pattern)
+document.addEventListener('keydown', e => {
+  const tabs = [...document.querySelectorAll('[role=tab]')];
+  const idx  = tabs.indexOf(document.activeElement);
+  if (idx === -1) return;
+  if (e.key === 'ArrowRight' && idx < tabs.length - 1) { tabs[idx+1].focus(); tabs[idx+1].click(); e.preventDefault(); }
+  if (e.key === 'ArrowLeft'  && idx > 0)               { tabs[idx-1].focus(); tabs[idx-1].click(); e.preventDefault(); }
+});
+
+// ── HTML builders ─────────────────────────────────────
+function stat(label, value, sub) {
+  return `<div class="stat" role="figure" aria-label="${label}: ${value}${sub?' ('+sub+')':''}">
+    <div class="stat-label" aria-hidden="true">${label}</div>
+    <div class="stat-value" aria-hidden="true">${value}</div>
+    ${sub ? `<div class="stat-sub" aria-hidden="true">${sub}</div>` : ''}
+  </div>`;
+}
+
+function leg(items) {
+  return '<div class="legend" aria-hidden="true">' +
+    items.map(([l, c]) =>
+      `<span class="leg"><span class="leg-sq" style="background:${c}"></span>${l}</span>`
+    ).join('') + '</div>';
+}
+
+// Canvas wrapped in a sized div — Chart.js responsive:true reads the CSS height
+function card(title, id, wrapClass, legendHtml, full, ariaDesc) {
+  return `<div class="chart-card${full?' full':''}">
+    <div class="chart-label" id="lbl-${id}">${title}</div>
+    <div class="canvas-wrap ${wrapClass}">
+      <canvas id="${id}"
+        role="img"
+        aria-labelledby="lbl-${id}"
+        aria-label="${ariaDesc||title}">
+        <p>${ariaDesc||title} — chart data available in the statistics above.</p>
+      </canvas>
+    </div>
+    ${legendHtml || ''}
+  </div>`;
+}
+
+// ── Chart defaults ─────────────────────────────────────
+const TICK = { color: '#888', font: { size: 12 } };
+const TICK_SM = { color: '#888', font: { size: 11 } };
+const GRID = 'rgba(0,0,0,0.05)';
+
+// All charts use responsive:true — they fill their CSS-sized wrapper
+function baseOpts(extra) {
+  return Object.assign({
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 400 },
+    plugins: { legend: { display: false } }
+  }, extra || {});
+}
+function gOpts()  { return baseOpts({scales:{x:{grid:{display:false},ticks:TICK},y:{grid:{color:GRID},beginAtZero:true,ticks:TICK}}}); }
+function hOpts()  { return baseOpts({indexAxis:'y',scales:{x:{grid:{color:GRID},beginAtZero:true,ticks:TICK},y:{grid:{display:false},ticks:TICK_SM}}}); }
+function dOpts(cutout) { return baseOpts({cutout:cutout||'64%'}); }
+function aOpts()  { return baseOpts({scales:{x:{grid:{display:false},ticks:{autoSkip:false,...TICK}},y:{grid:{color:GRID},beginAtZero:true,ticks:TICK}}}); }
+
+function mkChart(id, type, data, opts) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  try { charts.push(new Chart(el, { type, data, options: opts })); }
+  catch(e) { console.error(id, e.message); }
+}
+
+// ── Board parsing ─────────────────────────────────────
+function parseBoards(boards) {
+  const B = {};
+  boards.forEach(b => { B[String(b.id)] = b; });
+
+  const beds = {};
+  const ccb = B['10074819030'];
+  if (ccb) ccb.items_page.items.forEach(i => { beds[i.name] = getVal(i,'numeric_mktwg5hy'); });
+
+  let cM=0,cF=0,cP=0,tM=0,tF=0,tP=0;
+  const cbb = B['9846453445'];
+  if (cbb) cbb.items_page.items.forEach(i => {
+    if (i.name==='Current'){ cM=getVal(i,'numeric_mktwg5hy'); cF=getVal(i,'numeric_mktwkx39'); cP=getVal(i,'numeric_mktwabp3'); }
+    if (i.name==='Total')  { tM=getVal(i,'numeric_mktwg5hy'); tF=getVal(i,'numeric_mktwkx39'); tP=getVal(i,'numeric_mktwabp3'); }
+  });
+
+  const rQ2={}, rTot={};
+  const refb = B['9922062151'];
+  if (refb) refb.items_page.items.forEach(i => {
+    const b=getVal(i,'numeric_mkw4tt6f'), q1=getVal(i,'numeric_mkw4dy2h'), q2=getVal(i,'numeric_mkv8n71c');
+    rQ2[i.name]=q2; rTot[i.name]=b+q1+q2;
+  });
+
+  const inc = {};
+  const incb = B['9922195851'];
+  if (incb) incb.items_page.items.forEach(i => { inc[i.name]=getVal(i,'numeric_mktwg5hy'); });
+
+  const hs = {};
+  const hsb = B['9922228941'];
+  if (hsb) hsb.items_page.items.forEach(i => { hs[i.name]=getVal(i,'numeric_mktwg5hy'); });
+
+  let hQ2=0,hTot=0,fQ2=0,fTot=0,rQ2e=0,rTote=0;
+  const exb = B['9852797939'];
+  if (exb) exb.items_page.items.forEach(i => {
+    if (i.name==='Exit Destination') {
+      hQ2=getVal(i,'numeric_mkty3t02');   hTot=getVal(i,'numeric_mkw4cqw7')+getVal(i,'numeric_mktwg5hy')+hQ2;
+      fQ2=getVal(i,'numeric_mktz8epc');   fTot=getVal(i,'numeric_mkw4c9zc')+getVal(i,'numeric_mktwkx39')+fQ2;
+      rQ2e=getVal(i,'numeric_mktzrxdg'); rTote=getVal(i,'numeric_mkw4d62n')+getVal(i,'numeric_mktwb23q')+rQ2e;
+    }
+  });
+
+  const age = {};
+  const ageb = B['10083757239'];
+  if (ageb) ageb.items_page.items.forEach(i => { age[i.name]=getVal(i,'numeric_mktwg5hy'); });
+
+  let sQ2=0,sTot=0;
+  const senb = B['10083893945'];
+  if (senb) senb.items_page.items.forEach(i => {
+    sQ2=getVal(i,'numeric_mkvxf3kb');
+    sTot=getVal(i,'numeric_mkwpqn35')+getVal(i,'numeric_mktwg5hy')+sQ2;
+  });
+
+  let vQ2=0,vTot=0;
+  const vetb = B['10084360329'];
+  if (vetb) vetb.items_page.items.forEach(i => {
+    vQ2=getVal(i,'numeric_mkvxf3kb');
+    vTot=getVal(i,'numeric_mkwp10sj')+getVal(i,'numeric_mktwg5hy')+vQ2;
+  });
+
+  let ti=0,te=0;
+  const ibc={}, ebc={};
+  const intb = B['9831712576'];
+  if (intb) intb.items_page.items.forEach(i => {
+    const iv=getVal(i,'numeric_mktzb5n5'), ev=getVal(i,'numeric_mktzs89h');
+    ti+=iv; te+=ev; ibc[i.name]=iv; ebc[i.name]=ev;
+  });
+
+  return {beds,cM,cF,cP,tM,tF,tP,rQ2,rTot,inc,hs,hQ2,hTot,fQ2,fTot,rQ2e,rTote,age,sQ2,sTot,vQ2,vTot,ti,te,ibc,ebc};
+}
+
+// ── Build HTML ────────────────────────────────────────
+function buildHTML(d) {
+  const totalBeds = Object.values(d.beds).reduce((a,b)=>a+b,0);
+
+  document.getElementById('stats-current').innerHTML = [
+    stat('Total beds',    totalBeds, 'across 3 cities'),
+    stat('Seniors (55+)', d.sQ2,    'current quarter'),
+    stat('Veterans',      d.vQ2,    'current quarter'),
+    stat('Housed',        d.hQ2,    'this quarter'),
+  ].join('');
+
+  document.getElementById('stats-inception').innerHTML = [
+    stat('Individuals assisted', d.tM+d.tF, 'since June 2024'),
+    stat('Seniors assisted',     d.sTot,    'cumulative'),
+    stat('Veterans assisted',    d.vTot,    'cumulative'),
+    stat('Total housed',         d.hTot,    'since inception'),
+    stat('Total intakes',        d.ti,      'since inception'),
+    stat('Total exits',          d.te,      'since inception'),
+  ].join('');
+
+  const GGb = d.beds['Garden Grove']||0, WMb = d.beds['Westminster']||0, FVb = d.beds['Fountain Valley']||0;
+
+  document.getElementById('charts-a').innerHTML =
+    card('Bed count by city', 'bedChart', 'h-doughnut',
+      leg([[`Garden Grove: ${GGb}`,GG],[`Westminster: ${WMb}`,WM],[`Fountain Valley: ${FVb}`,FV]]),
+      false, `Doughnut chart: Garden Grove ${GGb} beds, Westminster ${WMb} beds, Fountain Valley ${FVb} beds`) +
+    card('Client breakdown', 'clientChart', 'h-bar',
+      leg([[`Males: ${d.cM}`,C1],[`Females: ${d.cF}`,C2],[`Pets: ${d.cP}`,C3]]),
+      false, `Bar chart: ${d.cM} males, ${d.cF} females, ${d.cP} pets`) +
+    card('Resident age distribution', 'ageChart', 'h-age', '', true,
+      'Bar chart showing resident age distribution across groups 18-24, 25-34, 35-44, 45-54, 55-61, and 62 and older');
+
+  document.getElementById('charts-b').innerHTML =
+    card('Housing search status', 'housingSearchChart', 'h-doughnut',
+      leg(Object.keys(d.hs).map((k,i)=>[`${k}: ${d.hs[k]}`, CAT[i]])),
+      false, 'Doughnut chart showing housing search status distribution') +
+    card('Sources of income', 'incomeChart', 'h-hbar', '',
+      false, 'Horizontal bar chart: income sources including No Income, General Relief, SSI/SSDI, and Employed') +
+    card('Referrals to services', 'refQ2Chart', 'h-doughnut',
+      leg(Object.keys(d.rQ2).map((k,i)=>[`${k}: ${d.rQ2[k]}`, CAT[i]])),
+      false, 'Doughnut chart showing referrals to Medical, Income, Housing, and Recovery services') +
+    card('Housing exits', 'exitsQ2Chart', 'h-hbar',
+      leg([['Housed',C1],['Family Reunification',C2],['90-Day Rehab',C3]]),
+      false, `Horizontal bar chart: ${d.hQ2} housed, ${d.fQ2} family reunification, ${d.rQ2e} 90-day rehab`);
+
+  document.getElementById('charts-c').innerHTML =
+    card('Total client breakdown', 'totalClientChart', 'h-bar',
+      leg([[`Males: ${d.tM}`,C1],[`Females: ${d.tF}`,C2],[`Pets: ${d.tP}`,C3]]),
+      false, `Bar chart: ${d.tM} males, ${d.tF} females, ${d.tP} pets since inception`) +
+    card('Referrals — cumulative', 'refTotalChart', 'h-doughnut',
+      leg(Object.keys(d.rTot).map((k,i)=>[`${k}: ${d.rTot[k]}`, CAT[i]])),
+      false, 'Doughnut chart showing cumulative referrals to services') +
+    card('Housing exits — cumulative', 'exitsTotalChart', 'h-hbar',
+      leg([['Housed',C1],['Family Reunification',C2],['90-Day Rehab',C3]]),
+      false, `Horizontal bar chart: ${d.hTot} housed, ${d.fTot} family reunification, ${d.rTote} 90-day rehab since inception`) +
+    card('Intakes vs exits by city', 'intakeExitChart', 'h-bar',
+      leg([['Intakes',C1],['Exits',C2]]),
+      false, 'Grouped bar chart comparing intakes and exits per city');
+}
+
+// ── Draw charts ───────────────────────────────────────
+function drawAllCharts(d) {
+  destroyCharts();
+
+  const GGb = d.beds['Garden Grove']||0, WMb = d.beds['Westminster']||0, FVb = d.beds['Fountain Valley']||0;
+
+  // Section A
+  mkChart('bedChart','doughnut',
+    {labels:['Garden Grove','Westminster','Fountain Valley'],
+     datasets:[{data:[GGb,WMb,FVb],backgroundColor:[GG,WM,FV],borderWidth:0}]},
+    dOpts('64%'));
+
+  mkChart('clientChart','bar',
+    {labels:['Males','Females','Pets'],
+     datasets:[{data:[d.cM,d.cF,d.cP],backgroundColor:[C1,C2,C3],borderRadius:3}]},
+    gOpts());
+
+  mkChart('ageChart','bar',
+    {labels:Object.keys(d.age),
+     datasets:[{data:Object.values(d.age),backgroundColor:BAR,borderRadius:3}]},
+    aOpts());
+
+  // Section B
+  mkChart('housingSearchChart','doughnut',
+    {labels:Object.keys(d.hs),
+     datasets:[{data:Object.values(d.hs),backgroundColor:CAT.slice(0,Object.keys(d.hs).length),borderWidth:0}]},
+    dOpts('64%'));
+
+  mkChart('incomeChart','bar',
+    {labels:Object.keys(d.inc),
+     datasets:[{data:Object.values(d.inc),backgroundColor:BAR,borderRadius:3}]},
+    hOpts());
+
+  mkChart('refQ2Chart','doughnut',
+    {labels:Object.keys(d.rQ2),
+     datasets:[{data:Object.values(d.rQ2),backgroundColor:CAT,borderWidth:0}]},
+    dOpts('64%'));
+
+  mkChart('exitsQ2Chart','bar',
+    {labels:['Housed','Family Reunification','90-Day Rehab'],
+     datasets:[{data:[d.hQ2,d.fQ2,d.rQ2e],backgroundColor:[C1,C2,C3],borderRadius:3}]},
+    hOpts());
+
+  // Section C
+  mkChart('totalClientChart','bar',
+    {labels:['Males','Females','Pets'],
+     datasets:[{data:[d.tM,d.tF,d.tP],backgroundColor:[C1,C2,C3],borderRadius:3}]},
+    gOpts());
+
+  mkChart('refTotalChart','doughnut',
+    {labels:Object.keys(d.rTot),
+     datasets:[{data:Object.values(d.rTot),backgroundColor:CAT,borderWidth:0}]},
+    dOpts('64%'));
+
+  mkChart('exitsTotalChart','bar',
+    {labels:['Housed','Family Reunification','90-Day Rehab'],
+     datasets:[{data:[d.hTot,d.fTot,d.rTote],backgroundColor:[C1,C2,C3],borderRadius:3}]},
+    hOpts());
+
+  const cities = Object.keys(d.ibc);
+  mkChart('intakeExitChart','bar',
+    {labels:cities,datasets:[
+      {label:'Intakes',data:cities.map(c=>d.ibc[c]),backgroundColor:C1,borderRadius:3},
+      {label:'Exits',  data:cities.map(c=>d.ebc[c]),backgroundColor:C2,borderRadius:3}
+    ]},
+    gOpts());
+}
+
+// ── Render ────────────────────────────────────────────
+function render(d) {
+  currentData = d;
+  showContent();
+  buildHTML(d);
+  // Two rAF frames ensures the DOM is fully painted before Chart.js measures
+  requestAnimationFrame(() => requestAnimationFrame(() => drawAllCharts(d)));
+}
+
+// ── Resize: only redraw when WIDTH changes (ignores mobile scroll chrome) ──
+let resizeTimer;
+window.addEventListener('resize', () => {
+  const newWidth = window.innerWidth;
+  if (Math.abs(newWidth - lastWidth) < 10) return; // ignore tiny changes
+  lastWidth = newWidth;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (currentData) drawAllCharts(currentData); }, 300);
+});
+
+// ── Orientation change: definitive trigger ─────────────
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => { if (currentData) drawAllCharts(currentData); }, 400);
+});
+
+// ── Load data from GitHub Pages (no token in browser) ─────────────────────
+async function loadData() {
+  try {
+    const res = await fetch(DATA_URL);
+    if (!res.ok) throw new Error('Failed to fetch data');
+    const json = await res.json();
+    if (!json.data || !json.data.boards) throw new Error('Invalid data format');
+
+    // Show last updated time from the JSON timestamp
+    if (json.last_updated) {
+      const date = new Date(json.last_updated).toLocaleDateString('en-US', {
+        month: 'long', day: 'numeric', year: 'numeric'
+      });
+      document.getElementById('last-updated').textContent = 'Data as of ' + date;
+    }
+
+    render(parseBoards(json.data.boards));
+  } catch(e) {
+    console.error(e);
+    document.getElementById('loader').innerHTML =
+      '<p style="color:#888;font-size:13px;text-align:center;padding:2rem;">Unable to load data. Please try again later.</p>';
+  }
+}
+
+window.addEventListener('DOMContentLoaded', loadData);
+</script>
+</body>
+</html>
