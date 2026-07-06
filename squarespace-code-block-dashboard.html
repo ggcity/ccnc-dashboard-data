@@ -1,0 +1,714 @@
+<style>
+  /* ── Scoped reset ── */
+  .ccnc-dash, .ccnc-dash *, .ccnc-dash *::before, .ccnc-dash *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ── Design tokens — aligned with centralcitiesoc.org palette ── */
+  .ccnc-dash {
+    /* Site fonts already loaded on the page */
+    font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #1a1a1a;
+    background: transparent;
+    -webkit-text-size-adjust: 100%;
+    --d-orange:      #e8630a; /* graphics / borders only (3.4:1) */
+    --d-orange-text: #c14e00; /* text-safe orange (4.8:1 on white) */
+    --d-navy:        #1a2a4a;
+    --d-navy-lt:     #253a62;
+    --d-border:      #dde2ec;
+    --d-white:       #ffffff;
+    --d-bg:          #f5f6f8;
+    --d-muted:       #5a6a82;
+    --d-radius:      10px;
+    --d-gap:         16px;
+  }
+
+  /* ── Visually hidden (screen-reader only) ── */
+  .ccnc-dash .sr-only {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* ── Loader ── */
+  .ccnc-dash .d-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 260px;
+    gap: 16px;
+  }
+  .ccnc-dash .d-spinner {
+    width: 44px; height: 44px;
+    border: 3px solid var(--d-border);
+    border-top-color: var(--d-orange);
+    border-radius: 50%;
+    animation: ccncSpin 0.75s linear infinite;
+  }
+  @keyframes ccncSpin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .ccnc-dash .d-spinner { animation: none; border-top-color: var(--d-muted); }
+  }
+  .ccnc-dash .d-loader-text {
+    font-family: 'Titillium Web', sans-serif;
+    font-size: 0.8125rem;
+    color: var(--d-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* ── Last updated ── */
+  .ccnc-dash .d-updated {
+    font-size: 0.75rem;
+    color: var(--d-muted);
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+
+  /* ── Section heading (real heading element, restyled) ── */
+  .ccnc-dash .d-section-head {
+    font-family: 'Titillium Web', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--d-navy);
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--d-navy);
+    margin-bottom: 1.25rem;
+    line-height: 1.4;
+  }
+
+  /* ── Tabs ── */
+  .ccnc-dash .d-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--d-border);
+    margin-bottom: 2rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .ccnc-dash .d-tabs::-webkit-scrollbar { display: none; }
+  .ccnc-dash .d-tab {
+    font-family: 'Titillium Web', sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 14px 28px;
+    border: none;
+    background: transparent;
+    color: var(--d-muted);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-height: 44px;
+    transition: color 0.15s;
+    text-transform: uppercase;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ccnc-dash .d-tab { transition: none; }
+  }
+  .ccnc-dash .d-tab:hover { color: var(--d-navy); }
+  .ccnc-dash .d-tab.active {
+    color: var(--d-orange-text);              /* 4.8:1 — passes WCAG AA */
+    border-bottom-color: var(--d-orange);
+  }
+  .ccnc-dash .d-tab:focus-visible {
+    outline: 3px solid var(--d-orange-text);
+    outline-offset: -3px;
+    border-radius: 2px;
+  }
+
+  /* ── Stat grid ── */
+  .ccnc-dash .d-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--d-gap);
+    margin-bottom: 2rem;
+  }
+  @media (max-width: 700px) { .ccnc-dash .d-stats { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 340px) { .ccnc-dash .d-stats { grid-template-columns: 1fr; } }
+
+  /* ── Stat card (uses definition-list semantics) ── */
+  .ccnc-dash .d-stat {
+    background: var(--d-white);
+    border: 1px solid var(--d-border);
+    border-top: 4px solid var(--d-navy);
+    border-radius: var(--d-radius);
+    padding: 1.4rem 1.4rem 1.2rem;
+    transition: box-shadow 0.2s;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ccnc-dash .d-stat { transition: none; }
+  }
+  .ccnc-dash .d-stat:hover {
+    box-shadow: 0 4px 20px rgba(26,42,74,0.12);
+  }
+  .ccnc-dash .d-stat-label {
+    font-family: 'Titillium Web', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--d-muted);
+    margin-bottom: 12px;
+    line-height: 1.35;
+  }
+  /* Larger, bolder stat numbers — matching site's heading weight */
+  .ccnc-dash .d-stat-value {
+    font-family: 'Titillium Web', sans-serif;
+    font-size: 3.25rem;
+    font-weight: 700;
+    color: var(--d-navy);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  @media (max-width: 900px) { .ccnc-dash .d-stat-value { font-size: 2.5rem; } }
+  @media (max-width: 700px) { .ccnc-dash .d-stat-value { font-size: 2.25rem; } }
+  .ccnc-dash .d-stat-sub {
+    font-size: 0.75rem;
+    color: var(--d-orange-text);              /* 4.8:1 — passes WCAG AA */
+    font-weight: 600;
+    margin-top: 8px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ── Chart grid ── */
+  .ccnc-dash .d-charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--d-gap);
+    margin-bottom: 2rem;
+  }
+  @media (max-width: 700px) { .ccnc-dash .d-charts { grid-template-columns: 1fr; } }
+
+  .ccnc-dash .d-chart-card {
+    background: var(--d-white);
+    border: 1px solid var(--d-border);
+    border-radius: var(--d-radius);
+    padding: 1.4rem 1.5rem 1.2rem;
+    overflow: hidden;
+  }
+  .ccnc-dash .d-chart-card.full { grid-column: 1 / -1; }
+  @media (max-width: 700px) { .ccnc-dash .d-chart-card.full { grid-column: 1; } }
+
+  /* Real heading element, restyled */
+  .ccnc-dash .d-chart-label {
+    font-family: 'Titillium Web', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--d-navy);
+    margin-bottom: 18px;
+    line-height: 1.35;
+  }
+
+  /* Canvas wrapper */
+  .ccnc-dash .cw { position: relative; width: 100%; }
+  .ccnc-dash .cw.donut { height: 210px; }
+  .ccnc-dash .cw.bar   { height: 210px; }
+  .ccnc-dash .cw.hbar  { height: 180px; }
+  .ccnc-dash .cw.age   { height: 190px; }
+  @media (max-width: 700px) {
+    .ccnc-dash .cw.donut { height: 190px; }
+    .ccnc-dash .cw.bar   { height: 190px; }
+    .ccnc-dash .cw.hbar  { height: 160px; }
+    .ccnc-dash .cw.age   { height: 170px; }
+  }
+  .ccnc-dash .cw canvas { position: absolute; inset: 0; width: 100%!important; height: 100%!important; }
+
+  /* Legend */
+  .ccnc-dash .d-legend {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px;
+    list-style: none;
+  }
+  .ccnc-dash .d-leg {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.75rem; font-weight: 600;
+    color: #333;
+    font-family: 'Open Sans', sans-serif;
+  }
+  .ccnc-dash .d-leg-sq {
+    width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0;
+    border: 1px solid rgba(26,42,74,0.25);   /* visible boundary regardless of fill hue */
+  }
+
+  /* ADA: visible focus indicator everywhere */
+  .ccnc-dash :focus-visible { outline: 3px solid var(--d-orange-text); outline-offset: 2px; border-radius: 2px; }
+</style>
+
+<div class="ccnc-dash">
+
+  <!-- Live region that announces loading state changes to screen readers -->
+  <p id="ccncDashStatus" class="sr-only" role="status" aria-live="polite"></p>
+
+  <div id="ccncDashLoader" class="d-loader" role="status" aria-live="polite">
+    <div class="d-spinner" aria-hidden="true"></div>
+    <span class="d-loader-text">Loading data&hellip;</span>
+  </div>
+
+  <div id="ccncDashContent" style="display:none;">
+
+    <p class="d-updated"><span id="ccncDashUpdated"></span></p>
+
+    <div class="d-tabs" role="tablist" aria-label="Dashboard views">
+      <button class="d-tab active" role="tab" aria-selected="true"  tabindex="0"  aria-controls="ccnc-tab-current"   id="ccnc-btn-current"   data-tab="current"   type="button">Current Snapshot</button>
+      <button class="d-tab"        role="tab" aria-selected="false" tabindex="-1" aria-controls="ccnc-tab-inception" id="ccnc-btn-inception" data-tab="inception" type="button">Since Inception</button>
+    </div>
+
+    <div id="ccnc-tab-current" role="tabpanel" tabindex="0" aria-labelledby="ccnc-btn-current">
+      <div class="d-stats" id="ccncStatsCurrent"></div>
+      <h3 class="d-section-head">Resident Breakdown</h3>
+      <div class="d-charts" id="ccncChartsA"></div>
+      <h3 class="d-section-head">Housing &amp; Services</h3>
+      <div class="d-charts" id="ccncChartsB"></div>
+    </div>
+
+    <div id="ccnc-tab-inception" role="tabpanel" tabindex="0" aria-labelledby="ccnc-btn-inception" style="display:none;">
+      <div class="d-stats" id="ccncStatsInception"></div>
+      <h3 class="d-section-head">Program Outcomes</h3>
+      <div class="d-charts" id="ccncChartsC"></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+(function () {
+  var DATA_URL = 'https://ggcity.github.io/ccnc-dashboard-data/data.json';
+
+  /* ── Site-aligned palette (all >= 3:1 vs white — WCAG 1.4.11) ── */
+  var C1 = '#e8630a'; /* orange     — 3.4:1  */
+  var C2 = '#1a2a4a'; /* navy       — 13.9:1 */
+  var C3 = '#2a7f9e'; /* steel blue — 4.5:1  */
+  var C4 = '#2a8f7f'; /* teal       — 3.9:1  */
+  var C5 = '#a3761f'; /* dark amber — 4.1:1 (was #c8963a at 2.7:1) */
+  var CAT = [C1, C2, C3, C4, C5];
+
+  /* City colors for bed-count donut only */
+  var GG = C2, WM = C1, FV = C3;
+
+  /* Respect user's motion preference in Chart.js too (CSS handles the spinner) */
+  var REDUCED_MOTION = typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var charts = [], currentData = null, lastWidth = window.innerWidth;
+
+  /* ── Utilities ── */
+  function n(v) { return parseFloat(v) || 0; }
+  function col(item, id) {
+    var c = item.column_values.find(function (x) { return x.id === id; });
+    return c ? n(c.text) : 0;
+  }
+  /* Escape any dynamic string interpolated into HTML/attributes */
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  function destroyCharts() {
+    charts.forEach(function (c) { try { c.destroy(); } catch (e) {} });
+    charts = [];
+  }
+  function announce(msg) {
+    var el = document.getElementById('ccncDashStatus');
+    if (el) el.textContent = msg;
+  }
+  function showContent() {
+    document.getElementById('ccncDashLoader').style.display = 'none';
+    document.getElementById('ccncDashContent').style.display = 'block';
+    announce('Dashboard data loaded.');
+  }
+
+  /* ── Tabs (WAI-ARIA APG pattern: roving tabindex + arrow/Home/End keys) ── */
+  function switchTab(t) {
+    ['current', 'inception'].forEach(function (id) {
+      var show  = id === t;
+      var panel = document.getElementById('ccnc-tab-' + id);
+      var btn   = document.getElementById('ccnc-btn-' + id);
+      if (panel) panel.style.display = show ? 'block' : 'none';
+      if (btn) {
+        btn.classList.toggle('active', show);
+        btn.setAttribute('aria-selected', show ? 'true' : 'false');
+        btn.setAttribute('tabindex', show ? '0' : '-1');
+      }
+    });
+    if (currentData) setTimeout(function () { draw(currentData); }, 50);
+  }
+
+  function focusAndSwitch(btn) {
+    btn.focus();
+    switchTab(btn.dataset.tab);
+  }
+
+  function wireTabs() {
+    var tabBtns = document.querySelectorAll('.ccnc-dash .d-tab');
+    tabBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
+      btn.addEventListener('keydown', function (e) {
+        var all = Array.prototype.slice.call(tabBtns);
+        var i = all.indexOf(document.activeElement);
+        if (e.key === 'ArrowRight' && i < all.length - 1) { focusAndSwitch(all[i + 1]); e.preventDefault(); }
+        else if (e.key === 'ArrowLeft' && i > 0)          { focusAndSwitch(all[i - 1]); e.preventDefault(); }
+        else if (e.key === 'Home')                        { focusAndSwitch(all[0]); e.preventDefault(); }
+        else if (e.key === 'End')                         { focusAndSwitch(all[all.length - 1]); e.preventDefault(); }
+      });
+    });
+  }
+
+  /* ── HTML builders ── */
+
+  /* Stat card: plain readable text — no redundant ARIA needed */
+  function stat(label, value, sub) {
+    return '<div class="d-stat">' +
+      '<div class="d-stat-label">' + esc(label) + '</div>' +
+      '<div class="d-stat-value">' + esc(value) + '</div>' +
+      (sub ? '<div class="d-stat-sub">' + esc(sub) + '</div>' : '') +
+      '</div>';
+  }
+
+  /* Visible legend built from [label, color] pairs */
+  function leg(items) {
+    return '<ul class="d-legend">' +
+      items.map(function (item) {
+        return '<li class="d-leg"><span class="d-leg-sq" style="background:' + esc(item[1]) + '" aria-hidden="true"></span>' + esc(item[0]) + '</li>';
+      }).join('') +
+      '</ul>';
+  }
+
+  /* Screen-reader-only data list — accessible alternative for every chart (WCAG 1.1.1) */
+  function srData(title, items) {
+    if (!items || !items.length) return '';
+    return '<ul class="sr-only" aria-label="' + esc(title) + ' data">' +
+      items.map(function (item) { return '<li>' + esc(item[0]) + '</li>'; }).join('') +
+      '</ul>';
+  }
+
+  /*
+   * Chart card.
+   *  - title:      visible heading (real <h4>)
+   *  - items:      [label-with-value, color] pairs; used for BOTH the visible
+   *                legend and the sr-only data list, so no chart is ever
+   *                color/canvas-only.
+   *  - showLegend: pass false to hide the visible legend (sr list still added)
+   */
+  function card(title, id, wrap, items, full, aria, showLegend) {
+    var label = aria || title;
+    return '<div class="d-chart-card' + (full ? ' full' : '') + '">' +
+      '<h4 class="d-chart-label">' + esc(title) + '</h4>' +
+      '<div class="cw ' + esc(wrap) + '">' +
+        '<canvas id="' + esc(id) + '" role="img" aria-label="' + esc(label) + '">' +
+          '<p>' + esc(label) + ' — data is listed below the chart.</p>' +
+        '</canvas>' +
+      '</div>' +
+      (showLegend !== false && items && items.length ? leg(items) : '') +
+      srData(title, items) +
+      '</div>';
+  }
+
+  /* ── Chart option factories ── */
+  var TK   = { color: '#5a6a82', font: { family: "'Open Sans', sans-serif", size: 11 } };
+  var TKSM = { color: '#5a6a82', font: { family: "'Open Sans', sans-serif", size: 10 } };
+  var GRD  = 'rgba(26,42,74,0.07)';
+
+  function base(x) {
+    return Object.assign({
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: REDUCED_MOTION ? false : { duration: 400 },
+      plugins: { legend: { display: false } }
+    }, x || {});
+  }
+  function gOpt()  { return base({ scales: { x: { grid: { display: false }, ticks: TK }, y: { grid: { color: GRD }, beginAtZero: true, ticks: TK } } }); }
+  function hOpt()  { return base({ indexAxis: 'y', scales: { x: { grid: { color: GRD }, beginAtZero: true, ticks: TK }, y: { grid: { display: false }, ticks: TKSM } } }); }
+  function dOpt()  { return base({ cutout: '64%' }); }
+  function aOpt()  { return base({ scales: { x: { grid: { display: false }, ticks: Object.assign({ autoSkip: false }, TK) }, y: { grid: { color: GRD }, beginAtZero: true, ticks: TK } } }); }
+
+  /* White borders on donut segments so adjacent slices don't rely on hue alone (WCAG 1.4.1) */
+  function donutDs(data, colors) {
+    return { data: data, backgroundColor: colors, borderWidth: 2, borderColor: '#ffffff' };
+  }
+
+  function mk(id, type, data, opts) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    try { charts.push(new Chart(el, { type: type, data: data, options: opts })); } catch (e) { console.error(id, e.message); }
+  }
+
+  /* ── Board parsing (unchanged logic) ── */
+  function parse(boards) {
+    var B = {};
+    boards.forEach(function (b) { B[String(b.id)] = b; });
+
+    var beds = {};
+    var b1 = B['10074819030'];
+    if (b1) b1.items_page.items.forEach(function (i) { beds[i.name] = col(i, 'numeric_mktwg5hy'); });
+
+    var cM = 0, cF = 0, cP = 0, tM = 0, tF = 0, tP = 0, senTot = 0, vetTot = 0;
+    var b2 = B['9846453445'];
+    if (b2) b2.items_page.items.forEach(function (i) {
+      if (i.name === 'Current') { cM = col(i, 'numeric_mktwg5hy'); cF = col(i, 'numeric_mktwkx39'); cP = col(i, 'numeric_mktwabp3'); }
+      if (i.name === 'Total')   { tM = col(i, 'numeric_mktwg5hy'); tF = col(i, 'numeric_mktwkx39'); tP = col(i, 'numeric_mktwabp3'); senTot = col(i, 'numeric_mm2c103z'); vetTot = col(i, 'numeric_mm2c2wrh'); }
+    });
+
+    var rCur = {}, rTot = {};
+    var b3 = B['9922062151'];
+    if (b3) b3.items_page.items.forEach(function (i) {
+      var beg = col(i, 'numeric_mkw4tt6f'), q1 = col(i, 'numeric_mkw4dy2h'), q2 = col(i, 'numeric_mkv8n71c'), q3 = col(i, 'numeric_mkv8z6n5');
+      rCur[i.name] = q3;
+      rTot[i.name] = beg + q1 + q2 + q3;
+    });
+
+    var inc = {};
+    var b4 = B['9922195851'];
+    if (b4) b4.items_page.items.forEach(function (i) { inc[i.name] = col(i, 'numeric_mktwg5hy'); });
+
+    var hs = {};
+    var b5 = B['9922228941'];
+    if (b5) b5.items_page.items.forEach(function (i) { hs[i.name] = col(i, 'numeric_mktwg5hy'); });
+
+    var exHousedQ3 = 0, exFamQ3 = 0, exRehabQ3 = 0;
+    var exHousedTot = 0, exFamTot = 0, exRehabTot = 0;
+    var b6 = B['9852797939'];
+    if (b6) b6.items_page.items.forEach(function (i) {
+      if (i.name === 'Exit Destination') {
+        exHousedQ3 = col(i, 'numeric_mktyabgh');
+        exFamQ3    = col(i, 'numeric_mktzmb0z');
+        exRehabQ3  = col(i, 'numeric_mktzc5p3');
+        exHousedTot = col(i, 'numeric_mkw4cqw7') + col(i, 'numeric_mktwg5hy') + col(i, 'numeric_mkty3t02') + exHousedQ3;
+        exFamTot    = col(i, 'numeric_mkw4c9zc') + col(i, 'numeric_mktwkx39') + col(i, 'numeric_mktz8epc') + exFamQ3;
+        exRehabTot  = col(i, 'numeric_mkw4d62n') + col(i, 'numeric_mktwb23q') + col(i, 'numeric_mktzrxdg') + exRehabQ3;
+      }
+    });
+    var housedStat = exHousedQ3 + exFamQ3;
+
+    var age = {};
+    var b7 = B['10083757239'];
+    if (b7) b7.items_page.items.forEach(function (i) { age[i.name] = col(i, 'numeric_mktwg5hy'); });
+
+    var senCur = 0;
+    var b8 = B['10083893945'];
+    if (b8) b8.items_page.items.forEach(function (i) { senCur = col(i, 'numeric_mkvxa8kj'); });
+
+    var vetCur = 0;
+    var b9 = B['10084360329'];
+    if (b9) b9.items_page.items.forEach(function (i) { vetCur = col(i, 'numeric_mkvxa8kj'); });
+
+    return {
+      beds: beds, cM: cM, cF: cF, cP: cP, tM: tM, tF: tF, tP: tP,
+      rCur: rCur, rTot: rTot, inc: inc, hs: hs,
+      exHousedQ3: exHousedQ3, exFamQ3: exFamQ3, exRehabQ3: exRehabQ3,
+      exHousedTot: exHousedTot, exFamTot: exFamTot, exRehabTot: exRehabTot,
+      housedStat: housedStat, age: age,
+      senCur: senCur, senTot: senTot, vetCur: vetCur, vetTot: vetTot,
+      totIndividuals: tM + tF,
+      totHoused: exHousedTot + exFamTot
+    };
+  }
+
+  /* Build [label-with-value, color] pairs from an object of key->number */
+  function pairs(obj, colors) {
+    return Object.keys(obj).map(function (k, i) {
+      return [k + ': ' + obj[k], colors[i % colors.length]];
+    });
+  }
+
+  /* ── Build HTML ── */
+  function buildHTML(d) {
+    var totalBeds = Object.values(d.beds).reduce(function (a, b) { return a + b; }, 0);
+    var GGb = d.beds['Garden Grove'] || 0, WMb = d.beds['Westminster'] || 0, FVb = d.beds['Fountain Valley'] || 0;
+
+    document.getElementById('ccncStatsCurrent').innerHTML = [
+      stat('Total Beds',    totalBeds,      'across 3 cities'),
+      stat('Seniors (55+)', d.senCur,       'Q3 2025-26'),
+      stat('Veterans',      d.vetCur,       'Q3 2025-26'),
+      stat('Housed',        d.housedStat,   'Q3 2025-26')
+    ].join('');
+
+    document.getElementById('ccncStatsInception').innerHTML = [
+      stat('Individuals Assisted', d.totIndividuals, 'since June 2024'),
+      stat('Seniors Assisted',     d.senTot,         'cumulative'),
+      stat('Veterans Assisted',    d.vetTot,         'cumulative'),
+      stat('Total Housed',         d.totHoused,      'since inception')
+    ].join('');
+
+    var curExits = {}, totExits = {};
+    if (d.exHousedQ3 > 0)  curExits['Housed']               = d.exHousedQ3;
+    if (d.exFamQ3 > 0)     curExits['Family Reunification'] = d.exFamQ3;
+    if (d.exRehabQ3 > 0)   curExits['90-Day Rehab']         = d.exRehabQ3;
+    if (d.exHousedTot > 0) totExits['Total Housing Exits']  = d.exHousedTot;
+    if (d.exFamTot > 0)    totExits['Family Reunification'] = d.exFamTot;
+    if (d.exRehabTot > 0)  totExits['90-Day Rehab']         = d.exRehabTot;
+
+    var exitColors = [C1, C2, C3];
+    var ageColors  = [C1, C1, C2, C3, C4, C5];
+
+    document.getElementById('ccncChartsA').innerHTML =
+      card('Bed Count by City', 'ccncBedChart', 'donut',
+        [['Garden Grove: ' + GGb, GG], ['Westminster: ' + WMb, WM], ['Fountain Valley: ' + FVb, FV]],
+        false, 'Bed count by city') +
+      card('Current Client Breakdown', 'ccncClientChart', 'bar',
+        [['Males: ' + d.cM, C1], ['Females: ' + d.cF, C2], ['Pets: ' + d.cP, C3]],
+        false, 'Current client breakdown') +
+      /* Age chart: axis labels are visible, so hide the visible legend but keep the sr-only data list */
+      card('Resident Age Distribution', 'ccncAgeChart', 'age',
+        pairs(d.age, ageColors),
+        true, 'Age distribution of current residents', false);
+
+    document.getElementById('ccncChartsB').innerHTML =
+      card('Housing Search Status', 'ccncHousingChart', 'donut',
+        pairs(d.hs, CAT),
+        false, 'Housing search status') +
+      /* Income chart: axis labels are visible, so hide the visible legend but keep the sr-only data list */
+      card('Sources of Income', 'ccncIncomeChart', 'hbar',
+        pairs(d.inc, CAT),
+        false, 'Income sources', false) +
+      card('Referrals to Services — Q3', 'ccncRefCurChart', 'donut',
+        pairs(d.rCur, CAT),
+        false, 'Q3 referrals by service type') +
+      (Object.keys(curExits).length > 0
+        ? card('Housing Exits — Q3', 'ccncExitCurChart', 'hbar',
+            pairs(curExits, exitColors),
+            false, 'Q3 housing exits')
+        : '');
+
+    document.getElementById('ccncChartsC').innerHTML =
+      card('Total Client Breakdown', 'ccncTotalClientChart', 'bar',
+        [['Males: ' + d.tM, C1], ['Females: ' + d.tF, C2], ['Pets: ' + d.tP, C3]],
+        false, 'Total client breakdown since inception') +
+      card('Referrals — Cumulative', 'ccncRefTotChart', 'donut',
+        pairs(d.rTot, CAT),
+        false, 'Cumulative referrals since inception') +
+      (Object.keys(totExits).length > 0
+        ? card('Housing Exits — Cumulative', 'ccncExitTotChart', 'hbar',
+            pairs(totExits, exitColors),
+            false, 'Cumulative housing exits')
+        : '');
+  }
+
+  /* ── Draw charts ── */
+  function draw(d) {
+    destroyCharts();
+    var GGb = d.beds['Garden Grove'] || 0, WMb = d.beds['Westminster'] || 0, FVb = d.beds['Fountain Valley'] || 0;
+
+    mk('ccncBedChart', 'doughnut',
+      { labels: ['Garden Grove', 'Westminster', 'Fountain Valley'], datasets: [donutDs([GGb, WMb, FVb], [GG, WM, FV])] }, dOpt());
+
+    mk('ccncClientChart', 'bar',
+      { labels: ['Males', 'Females', 'Pets'], datasets: [{ data: [d.cM, d.cF, d.cP], backgroundColor: [C1, C2, C3], borderRadius: 4 }] }, gOpt());
+
+    mk('ccncAgeChart', 'bar',
+      { labels: Object.keys(d.age), datasets: [{ data: Object.values(d.age), backgroundColor: [C1, C1, C2, C3, C4, C5], borderRadius: 4 }] }, aOpt());
+
+    mk('ccncHousingChart', 'doughnut',
+      { labels: Object.keys(d.hs), datasets: [donutDs(Object.values(d.hs), CAT.slice(0, Object.keys(d.hs).length))] }, dOpt());
+
+    var incKeys = Object.keys(d.inc);
+    mk('ccncIncomeChart', 'bar',
+      { labels: incKeys, datasets: [{ data: Object.values(d.inc), backgroundColor: incKeys.map(function (_, i) { return CAT[i % CAT.length]; }), borderRadius: 4 }] }, hOpt());
+
+    mk('ccncRefCurChart', 'doughnut',
+      { labels: Object.keys(d.rCur), datasets: [donutDs(Object.values(d.rCur), CAT)] }, dOpt());
+
+    var curEx = {}, curCols = [];
+    if (d.exHousedQ3 > 0) { curEx['Housed'] = d.exHousedQ3; curCols.push(C1); }
+    if (d.exFamQ3 > 0)    { curEx['Family Reunification'] = d.exFamQ3; curCols.push(C2); }
+    if (d.exRehabQ3 > 0)  { curEx['90-Day Rehab'] = d.exRehabQ3; curCols.push(C3); }
+    if (Object.keys(curEx).length > 0) {
+      mk('ccncExitCurChart', 'bar',
+        { labels: Object.keys(curEx), datasets: [{ data: Object.values(curEx), backgroundColor: curCols, borderRadius: 4 }] }, hOpt());
+    }
+
+    mk('ccncTotalClientChart', 'bar',
+      { labels: ['Males', 'Females', 'Pets'], datasets: [{ data: [d.tM, d.tF, d.tP], backgroundColor: [C1, C2, C3], borderRadius: 4 }] }, gOpt());
+
+    mk('ccncRefTotChart', 'doughnut',
+      { labels: Object.keys(d.rTot), datasets: [donutDs(Object.values(d.rTot), CAT)] }, dOpt());
+
+    var totEx = {}, totCols = [];
+    if (d.exHousedTot > 0) { totEx['Total Housing Exits'] = d.exHousedTot; totCols.push(C1); }
+    if (d.exFamTot > 0)    { totEx['Family Reunification'] = d.exFamTot;   totCols.push(C2); }
+    if (d.exRehabTot > 0)  { totEx['90-Day Rehab'] = d.exRehabTot;         totCols.push(C3); }
+    if (Object.keys(totEx).length > 0) {
+      mk('ccncExitTotChart', 'bar',
+        { labels: Object.keys(totEx), datasets: [{ data: Object.values(totEx), backgroundColor: totCols, borderRadius: 4 }] }, hOpt());
+    }
+  }
+
+  /* ── Render ── */
+  function render(d) {
+    currentData = d;
+    showContent();
+    buildHTML(d);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { draw(d); });
+    });
+  }
+
+  /* ── Resize handling ── */
+  var resizeTimer;
+  window.addEventListener('resize', function () {
+    var w = window.innerWidth;
+    if (Math.abs(w - lastWidth) < 10) return;
+    lastWidth = w;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () { if (currentData) draw(currentData); }, 300);
+  });
+  window.addEventListener('orientationchange', function () {
+    setTimeout(function () { if (currentData) draw(currentData); }, 400);
+  });
+
+  /* ── Load data ── */
+  function loadData() {
+    fetch(DATA_URL)
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (json) {
+        if (!json.data || !json.data.boards) throw new Error('Invalid data');
+        if (json.last_updated) {
+          document.getElementById('ccncDashUpdated').textContent =
+            'Data as of ' + new Date(json.last_updated).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        }
+        render(parse(json.data.boards));
+      })
+      .catch(function (e) {
+        console.error(e);
+        /* Error message lands inside the role="status" loader, so it is announced */
+        document.getElementById('ccncDashLoader').innerHTML =
+          '<p style="color:#5a6a82;font-size:0.8125rem;text-align:center;padding:2rem;font-family:\'Open Sans\',sans-serif;">Unable to load data. Please try again later.</p>';
+        announce('Unable to load dashboard data.');
+      });
+  }
+
+  /* Run after DOM is ready — also fixes a bug where tab wiring never ran if the
+     script executed after DOMContentLoaded had already fired (common when
+     Squarespace injects code blocks). */
+  function init() {
+    wireTabs();
+    loadData();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+}());
+</script>
