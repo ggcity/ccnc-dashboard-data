@@ -1,0 +1,834 @@
+<style>
+  /* ── Scoped reset ── */
+  .ccnc-wrap, .ccnc-wrap *, .ccnc-wrap *::before, .ccnc-wrap *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ── Neutralize browser heading defaults for card headings only ── */
+  /* h2 (.ccnc-title-main) is excluded — it uses its own clamp() font-size */
+  .ccnc-wrap h3, .ccnc-wrap h4 {
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+  }
+
+  :root {
+    --ccnc-navy:         #1a2a4a;
+    --ccnc-navy-deep:    #0d1829;
+    --ccnc-orange:       #e8630a;
+    --ccnc-orange-lt:    #f5a05a;
+    --ccnc-orange-a11y:  #b34d00;  /* accessible orange — 4.82:1 on white, passes WCAG AA */
+    --ccnc-radius:       20px;
+    --ccnc-ease:         0.48s cubic-bezier(0.4,0,0.2,1);
+    --ccnc-fade-top:     160px;
+    --ccnc-fade-btm:     160px;
+  }
+
+  .ccnc-wrap {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    overflow-x: clip;
+    width: 100%;
+    padding: 0;
+    position: relative;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      var(--ccnc-navy-deep) var(--ccnc-fade-top),
+      var(--ccnc-navy-deep) calc(100% - var(--ccnc-fade-btm)),
+      transparent 100%
+    );
+  }
+
+  .ccnc-bg-img {
+    position: absolute;
+    inset: 0;
+    background: url('https://images.squarespace-cdn.com/content/69af43237c492f32071947e2/f14a2c4a-542f-47e6-add6-d1db710e34ab/CCNC.jpg?content-type=image%2Fjpeg') center/cover no-repeat;
+    opacity: 0.14;
+    z-index: 0;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black var(--ccnc-fade-top), black calc(100% - var(--ccnc-fade-btm)), transparent 100%);
+    mask-image:         linear-gradient(to bottom, transparent 0px, black var(--ccnc-fade-top), black calc(100% - var(--ccnc-fade-btm)), transparent 100%);
+  }
+
+  .ccnc-bg-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 30%, rgba(8,14,26,0.78) 100%);
+    z-index: 1;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black var(--ccnc-fade-top), black calc(100% - var(--ccnc-fade-btm)), transparent 100%);
+    mask-image:         linear-gradient(to bottom, transparent 0px, black var(--ccnc-fade-top), black calc(100% - var(--ccnc-fade-btm)), transparent 100%);
+  }
+
+  .ccnc-inner {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 72px;
+  }
+
+  /* ── Section heading ── */
+  .ccnc-title-wrap {
+    text-align: center;
+    margin-bottom: 48px;
+    padding: 0 24px;
+  }
+
+  .ccnc-title-main {
+    font-size: clamp(40px, 6vw, 72px);
+    font-weight: 900;
+    line-height: 1.0;
+    letter-spacing: -0.02em;
+    color: #fff;
+    text-shadow: 0 2px 24px rgba(0,0,0,0.5);
+  }
+
+  .ccnc-title-main span { color: var(--ccnc-orange); }
+
+  .ccnc-title-rule {
+    width: 56px; height: 4px;
+    background: var(--ccnc-orange);
+    border-radius: 2px;
+    margin: 18px auto 0;
+  }
+
+  /* ── Screen-reader-only utility (visually hidden, readable by AT) ── */
+  .ccnc-sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* ── Carousel stage ── */
+  .ccnc-stage {
+    position: relative;
+    width: 100%;
+    height: 700px;
+    perspective: 2000px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── Cards ── */
+  .ccnc-card {
+    position: absolute;
+    width: min(940px, 86vw);
+    height: 620px;
+    background: #fff;
+    border-radius: var(--ccnc-radius);
+    overflow: hidden;
+    transition: transform var(--ccnc-ease), opacity var(--ccnc-ease), box-shadow var(--ccnc-ease);
+    will-change: transform, opacity;
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: 340px 1fr;
+  }
+
+  .ccnc-card.active {
+    transform: translateX(0) scale(1) rotateY(0deg);
+    opacity: 1; z-index: 10;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.6);
+    pointer-events: none;  /* prevents stale card clicks */
+    cursor: default;
+  }
+  /* Restore pointer events for scrollable content on active card */
+  .ccnc-card.active .ccnc-content-body { pointer-events: auto; }
+
+  .ccnc-card.prev {
+    transform: translateX(-46%) scale(0.82) rotateY(18deg);
+    opacity: 0.55; z-index: 5;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.35);
+  }
+  .ccnc-card.next {
+    transform: translateX(46%) scale(0.82) rotateY(-18deg);
+    opacity: 0.55; z-index: 5;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.35);
+  }
+  .ccnc-card.hidden {
+    transform: translateX(0) scale(0.65);
+    opacity: 0; z-index: 1;
+    pointer-events: none;
+  }
+  .ccnc-card.prev:hover, .ccnc-card.next:hover { opacity: 0.78; }
+
+  /* ── Photo column ── */
+  .ccnc-photo-col {
+    position: relative;
+    height: 620px;
+    overflow: hidden;
+    background: var(--ccnc-navy);
+    flex-shrink: 0;
+  }
+
+  .ccnc-photo-col img.ccnc-profile {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+  }
+
+  .ccnc-no-photo {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px;
+  }
+
+  .ccnc-initials {
+    width: 84px; height: 84px;
+    border-radius: 50%;
+    background: var(--ccnc-orange);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 800; color: #fff;
+  }
+
+  .ccnc-ph-label { font-size: 14px; color: rgba(255,255,255,0.4); }
+
+  .ccnc-logo-badge {
+    position: absolute;
+    top: 18px; left: 18px;
+    width: 140px; z-index: 20;
+    background: rgba(8,14,26,0.78);
+    border-radius: 9px;
+    padding: 9px 11px;
+  }
+  .ccnc-logo-badge img { width: 100%; display: block; }
+
+  .ccnc-photo-gradient {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 180px;
+    background: linear-gradient(to top, rgba(8,14,26,0.82) 0%, transparent 100%);
+    pointer-events: none; z-index: 10;
+  }
+
+  .ccnc-photo-accent {
+    position: absolute;
+    top: 0; right: 0;
+    width: 5px; height: 100%;
+    background: var(--ccnc-orange); z-index: 15;
+  }
+
+  /* ── Content column ── */
+  .ccnc-content-col {
+    display: flex;
+    flex-direction: column;
+    height: 620px;
+    overflow: hidden;
+  }
+
+  .ccnc-name-band {
+    background: var(--ccnc-navy);
+    padding: 26px 32px 22px;
+    flex-shrink: 0;
+  }
+
+  .ccnc-name-band .ccnc-name {
+    font-size: 28px; font-weight: 800;
+    color: #fff; line-height: 1.1;
+    letter-spacing: -0.01em;
+  }
+
+  .ccnc-name-band .ccnc-tagline {
+    font-size: 16px; color: var(--ccnc-orange-lt);
+    font-style: italic; margin-top: 7px; line-height: 1.5;
+  }
+
+  .ccnc-name-accent {
+    width: 40px; height: 3px;
+    background: var(--ccnc-orange);
+    border-radius: 2px; margin-top: 16px;
+  }
+
+  .ccnc-content-body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    scrollbar-width: thin;
+    scrollbar-color: #dde1ea transparent;
+  }
+  .ccnc-content-body::-webkit-scrollbar { width: 4px; }
+  .ccnc-content-body::-webkit-scrollbar-thumb { background: #dde1ea; border-radius: 4px; }
+  /* Visible focus ring so keyboard users can see the scrollable region is focused */
+  .ccnc-content-body:focus-visible {
+    outline: 3px solid var(--ccnc-orange-a11y);
+    outline-offset: -3px;
+  }
+
+  .ccnc-story-sec {
+    padding: 22px 32px 20px;
+    border-bottom: 1px solid #edf0f5;
+    flex-shrink: 0;
+  }
+
+  /* ── Section labels: accessible orange (#b34d00) — 4.82:1 on white ── */
+  .ccnc-sec-label {
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ccnc-orange-a11y);
+    margin-bottom: 10px;
+  }
+
+  .ccnc-story-p {
+    font-size: 15px;
+    color: #2a2a2a;
+    line-height: 1.75;
+  }
+
+  /* ── Inline quote highlight: accessible orange — 4.82:1 on white ── */
+  .ccnc-quote {
+    color: var(--ccnc-orange-a11y);
+    font-style: italic;
+    font-weight: 600;
+  }
+
+  .ccnc-services-sec {
+    padding: 18px 32px 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ccnc-journey-title {
+    font-size: 14px; font-weight: 800;
+    color: var(--ccnc-navy);
+    margin-bottom: 12px;
+    line-height: 1.2;
+  }
+
+  /* ── Services: semantic <ul> with list-style reset ── */
+  .ccnc-svc-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 20px;
+    list-style: none;
+  }
+
+  .ccnc-svc-item {
+    font-size: 14px; color: #444;
+    display: flex; align-items: flex-start;
+    gap: 8px;
+    padding: 7px 0;
+    border-bottom: 1px solid #f0f2f6;
+    line-height: 1.35;
+  }
+
+  .ccnc-svc-item:nth-last-child(1),
+  .ccnc-svc-item:nth-last-child(2) { border-bottom: none; }
+
+  .ccnc-svc-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%; background: var(--ccnc-orange);
+    flex-shrink: 0; margin-top: 4px;
+  }
+
+  /* ── Compact services for cards with 6+ items ── */
+  .ccnc-svc-compact .ccnc-svc-item {
+    padding: 4px 0;
+    font-size: 13px;
+  }
+
+  /* ── Navigation row ── */
+  .ccnc-nav-row {
+    display: flex; justify-content: center;
+    align-items: center; gap: 22px;
+    margin-top: 36px; width: 100%;
+  }
+
+  .ccnc-nbtn {
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.35);
+    background: rgba(255,255,255,0.07);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+  }
+  .ccnc-nbtn:hover {
+    background: var(--ccnc-orange);
+    border-color: var(--ccnc-orange);
+    transform: scale(1.08);
+  }
+  /* Visible focus ring for keyboard users */
+  .ccnc-nbtn:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 3px;
+  }
+  .ccnc-nbtn svg { width: 18px; height: 18px; }
+  .ccnc-nbtn svg path {
+    stroke: #fff; stroke-width: 2.5;
+    fill: none; stroke-linecap: round; stroke-linejoin: round;
+  }
+
+  .ccnc-dots { display: flex; gap: 8px; align-items: center; }
+
+  /* ── Dots are <button> elements — reset all button defaults ── */
+  .ccnc-dot {
+    -webkit-appearance: none;
+    appearance: none;
+    border: none;
+    padding: 0;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.28);
+    cursor: pointer;
+    position: relative;
+    transition: background 0.25s, transform 0.25s;
+  }
+  /* Enlarged touch/click target (24×24 min) via pseudo-element */
+  .ccnc-dot::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
+  .ccnc-dot.on {
+    background: var(--ccnc-orange);
+    transform: scale(1.5);
+  }
+  /* Visible focus ring for keyboard users */
+  .ccnc-dot:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 4px;
+  }
+
+  /* ── Partner agencies ── */
+  .ccnc-partners-outer { width: 100%; margin-top: 56px; }
+
+  .ccnc-partners-label-row {
+    text-align: center;
+    margin-bottom: 28px;
+    padding: 0 24px;
+  }
+
+  .ccnc-partners-heading {
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: rgba(255,255,255,0.85);
+  }
+
+  .ccnc-partners-rule {
+    width: 36px; height: 2px;
+    background: var(--ccnc-orange);
+    border-radius: 2px;
+    margin: 10px auto 0;
+  }
+
+  .ccnc-partners-strip {
+    width: 100%;
+    padding: 40px 60px 80px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 32px;
+    flex-wrap: nowrap;
+  }
+
+  .ccnc-partner-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    text-decoration: none;
+    transition: transform 0.2s;
+    border-radius: 4px;
+  }
+  .ccnc-partner-item:hover { transform: translateY(-4px); }
+  /* Visible focus ring for keyboard users */
+  .ccnc-partner-item:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 6px;
+    border-radius: 6px;
+  }
+
+  .ccnc-partner-logo-wrap {
+    width: 160px; height: 160px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.28);
+    transition: box-shadow 0.2s;
+  }
+  .ccnc-partner-item:hover .ccnc-partner-logo-wrap {
+    box-shadow: 0 8px 36px rgba(0,0,0,0.42);
+  }
+  .ccnc-partner-logo-wrap img {
+    max-width: 100%; max-height: 100%;
+    width: auto; height: auto;
+    object-fit: contain;
+    display: block;
+  }
+
+  .ccnc-partner-name {
+    font-size: 14px; font-weight: 700;
+    color: rgba(255,255,255,0.65);
+    text-align: center;
+    line-height: 1.3;
+    transition: color 0.2s;
+    letter-spacing: 0.01em;
+  }
+  .ccnc-partner-item:hover .ccnc-partner-name { color: rgba(255,255,255,0.95); }
+
+  /* ── Mobile ── */
+  @media (max-width: 720px) {
+    :root { --ccnc-fade-top: 100px; --ccnc-fade-btm: 100px; }
+
+    .ccnc-stage {
+      height: auto; min-height: 580px;
+      perspective: none;
+      align-items: flex-start;
+      padding: 0 14px;
+    }
+    .ccnc-card {
+      position: relative; width: 100%;
+      height: auto; grid-template-columns: 1fr;
+    }
+    .ccnc-card.active { transform: none; }
+    .ccnc-card.prev, .ccnc-card.next {
+      opacity: 0; pointer-events: none;
+      transform: none; position: absolute; top: 0;
+    }
+    .ccnc-photo-col        { height: 320px; }
+    .ccnc-content-col      { height: auto; }
+    .ccnc-content-body     { overflow-y: visible; }
+    .ccnc-svc-list         { grid-template-columns: 1fr; }
+    .ccnc-name-band        { padding: 20px 22px 18px; }
+    .ccnc-story-sec,
+    .ccnc-services-sec     { padding-left: 22px; padding-right: 22px; }
+    .ccnc-partners-strip   { padding: 28px 20px 60px; gap: 16px; flex-wrap: wrap; }
+    .ccnc-partner-logo-wrap{ width: 100px; height: 100px; }
+    .ccnc-partner-item     { min-width: 100px; max-width: 140px; }
+  }
+
+  /* ── Reduced motion: removes 3-D transforms for vestibular safety ── */
+  @media (prefers-reduced-motion: reduce) {
+    .ccnc-card           { transition: opacity 0.15s ease; }
+    .ccnc-card.prev      { transform: translateX(-46%) scale(0.82); }
+    .ccnc-card.next      { transform: translateX(46%)  scale(0.82); }
+    .ccnc-card.hidden    { transform: translateX(0); }
+    .ccnc-nbtn           { transition: background 0.1s, border-color 0.1s; }
+    .ccnc-partner-item   { transition: none; }
+  }
+</style>
+
+<div class="ccnc-wrap">
+  <div class="ccnc-bg-img"      aria-hidden="true"></div>
+  <div class="ccnc-bg-vignette" aria-hidden="true"></div>
+  <div class="ccnc-inner">
+
+    <div class="ccnc-title-wrap">
+      <h2 class="ccnc-title-main">Success <span>Stories</span></h2>
+      <div class="ccnc-title-rule" aria-hidden="true"></div>
+    </div>
+
+    <!-- Screen reader live region: announces active story on navigation -->
+    <div id="ccncAnnounce" class="ccnc-sr-only" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Carousel region -->
+    <div class="ccnc-stage" id="ccncStage"
+         role="region"
+         aria-label="Success Stories"
+         aria-roledescription="carousel"></div>
+
+    <!-- Navigation controls -->
+    <div class="ccnc-nav-row" role="group" aria-label="Carousel navigation">
+      <button class="ccnc-nbtn" id="ccncPrev"
+              aria-label="Previous story"
+              aria-controls="ccncStage">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M15 18l-6-6 6-6"/>
+        </svg>
+      </button>
+      <div class="ccnc-dots" id="ccncDots"
+           role="group"
+           aria-label="Story indicators"></div>
+      <button class="ccnc-nbtn" id="ccncNext"
+              aria-label="Next story"
+              aria-controls="ccncStage">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Partner agencies -->
+    <div class="ccnc-partners-outer">
+      <div class="ccnc-partners-label-row">
+        <div class="ccnc-partners-heading">Partner Agencies</div>
+        <div class="ccnc-partners-rule" aria-hidden="true"></div>
+      </div>
+      <div class="ccnc-partners-strip" id="ccncPartnersRow"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+
+  const PARTNERS = [
+    { name: 'Garden Grove',          logo: 'https://images.squarespace-cdn.com/content/69af43237c492f32071947e2/92087ee7-b14c-4e20-a750-26fc539cf416/GG+logo+Title.png?content-type=image%2Fpng',       url: 'https://www.ci.garden-grove.ca.us' },
+    { name: 'Fountain Valley',       logo: 'https://images.squarespace-cdn.com/content/69af43237c492f32071947e2/6ae4cb06-d3a6-4ceb-9acb-f74c5d7106b5/FV+Logo.png?content-type=image%2Fpng',           url: 'https://www.fountainvalley.org' },
+    { name: 'Westminster',           logo: 'https://images.squarespace-cdn.com/content/69af43237c492f32071947e2/f18b1882-49c7-44ad-8c47-3451dc228617/westminsterLOGO.jpg?content-type=image%2Fjpeg',  url: 'https://www.westminster-ca.gov' },
+    { name: 'County of Orange',      logo: 'https://images.squarespace-cdn.com/content/69af43237c492f32071947e2/7d384f85-eabf-45fe-878b-330f998f7d28/COunty+Logo.jpeg?content-type=image%2Fpng',      url: 'https://www.ocgov.com' },
+    { name: 'Volunteers of America', logo: 'https://images.squarespace-cdn.com/content/69af43237c492f32071947e2/0aeba36f-9c71-42a5-8589-d5a7af9dfdec/voalaLOGO.jpg?content-type=image%2Fjpeg',      url: 'https://www.voala.org' }
+  ];
+
+  const CCNC_LOGO = 'https://images.squarespace-cdn.com/content/69af43237c492f32071947e2/7432577c-cdd8-4356-82b1-ccc5519de804/Central+Cities+Navigation+Center+Logo+2023-02.png?content-type=image%2Fpng';
+
+  const stories = [
+
+    /* ── 1. Jose Flores ── */
+    {
+      name:         'Jose Flores',
+      initials:     'JF',
+      tagline:      'From Experiencing Homelessness to Finding a Home',
+      photo:        'https://images.squarespace-cdn.com/content/69af43237c492f32071947e2/c2eb59aa-9362-4fa9-8990-f6ecad1e4ab3/success_JoseFlores.jpeg?content-type=image%2Fjpeg',
+      journeyTitle: "Jose's Journey to Self-Sufficiency",
+      story:        'Jose faced significant challenges when he first arrived at the CCNC, including behavioral setbacks and struggles with alcohol use. With structured support, accountability, and consistent guidance from CCNC staff, he committed to meaningful change. Through perseverance, Jose completed his behavioral contract, maintained recovery, and achieved permanent housing with ongoing supportive services.',
+      services: [
+        'Food and Transportation Services',
+        'Obtained Birth Certificate',
+        'Health Services',
+        'General Relief Benefits',
+        'Case Management and Housing Navigation',
+        'Workforce Development and Employment Referrals',
+        'Tenant-Based Rental Assistance'
+      ]
+    },
+
+    /* ── 2. Colby Marchissett ── */
+    {
+      name:         'Colby Marchissett',
+      initials:     'CM',
+      tagline:      'From Experiencing Homelessness to Finding a Home',
+      photo:        'https://images.squarespace-cdn.com/content/69af43237c492f32071947e2/6a865ae0-0d0e-4ae1-a994-ce37d5d2676a/success_ColbyMarchissett.jpeg?content-type=image%2Fjpeg',
+      journeyTitle: "Colby's Journey to Self-Sufficiency",
+      story:        'From the moment Colby Marchissett walked into the Central Cities Navigation Center, he knew things would get better. Referred by Healthcare in Action, he immersed himself in the program and found the support he needed with guidance from staff. He shared that he <span class="ccnc-quote">\u201cfelt big,\u201d</span> proud of the progress he made toward rebuilding his life and hopeful for what lies ahead. Today, Colby has a place to call home and continues to receive supportive services. His journey is a powerful reminder that a new beginning is possible with the right support. His message to others experiencing homelessness is simple: Take the help. It can change your life.',
+      services: [
+        'Food and Transportation Services',
+        'Obtained Birth Certificate',
+        'Health Services',
+        'General Relief Benefits',
+        'Case Management and Housing Navigation',
+        'Workforce Development and Employment Referral Services',
+        'Tenant-Based Rental Assistance'
+      ]
+    },
+
+    /* ── 3. Michael Wright ── */
+    {
+      name:         'Michael Wright',
+      initials:     'MW',
+      tagline:      'From Experiencing Homelessness to Finding a Home',
+      photo:        'https://images.squarespace-cdn.com/content/69af43237c492f32071947e2/72f7dd14-2bd1-4289-8f36-ce76eb18ab7e/success_MichaelWright.jpg?content-type=image%2Fjpeg',
+      photoAlt:     'Central Cities Navigation Center reception and lobby area',
+      journeyTitle: "Michael's Journey to Self-Sufficiency",
+      story:        'Prior to arriving at the Central Cities Navigation Center (CCNC), Michael felt lost and unsure about how he would survive. After receiving encouragement from his sister-in-law, he gave the CCNC a chance. There, he found steady support from staff who helped him see that a better path is possible. His advice to others: <span class="ccnc-quote">\u201cLook for the nearest shelter.\u201d</span> Michael later moved into his own apartment, an achievement he once only imagined. Receiving his keys was <span class="ccnc-quote">\u201ca wonderful feeling,\u201d</span> and it marked a turning point in how he sees his life today. Michael now takes pride in what he has accomplished and hopes to show others that success is possible.',
+      services: [
+        'Food and Transportation Services',
+        'Health Services',
+        'General Relief Benefits',
+        'SSI/SSDI Benefits Assistance',
+        'Case Management and Housing Navigation',
+        'Tenant-Based Rental Assistance'
+      ]
+    }
+
+  ];
+
+  /* ── Build partner logos ── */
+  const partnersRow = document.getElementById('ccncPartnersRow');
+  PARTNERS.forEach(function (p) {
+    const a   = document.createElement('a');
+    a.className = 'ccnc-partner-item';
+    a.href      = p.url;
+    a.target    = '_blank';
+    a.rel       = 'noopener noreferrer';
+    a.innerHTML =
+      '<div class="ccnc-partner-logo-wrap">' +
+        '<img src="' + p.logo + '" alt="' + p.name + ' logo" loading="lazy">' +
+      '</div>' +
+      '<div class="ccnc-partner-name">' + p.name +
+        '<span class="ccnc-sr-only">, opens in a new tab</span>' +
+      '</div>';
+    partnersRow.appendChild(a);
+  });
+
+  /* ── Build carousel cards ── */
+  const stage   = document.getElementById('ccncStage');
+  const dotsEl  = document.getElementById('ccncDots');
+  const announce = document.getElementById('ccncAnnounce');
+  let   cur     = 0;
+
+  function buildCards() {
+    stage.innerHTML  = '';
+    dotsEl.innerHTML = '';
+    const total = stories.length;
+
+    stories.forEach(function (s, i) {
+      const card       = document.createElement('div');
+      card.className   = 'ccnc-card';
+      card.dataset.i   = i;
+      /* Carousel slide semantics */
+      card.setAttribute('role', 'group');
+      card.setAttribute('aria-roledescription', 'slide');
+      card.setAttribute('aria-label', 'Story ' + (i + 1) + ' of ' + total + ': ' + s.name);
+
+      /* Photo: use photoAlt if provided, otherwise generic alt */
+      const altText  = s.photoAlt || ('Photo of ' + s.name);
+      const photoHTML = s.photo
+        ? '<img class="ccnc-profile" src="' + s.photo + '" alt="' + altText + '" loading="lazy">'
+        : '<div class="ccnc-no-photo" aria-hidden="true">' +
+            '<div class="ccnc-initials">' + s.initials + '</div>' +
+            '<div class="ccnc-ph-label">Photo coming soon</div>' +
+          '</div>';
+
+      const compactClass = s.services.length >= 6 ? ' ccnc-svc-compact' : '';
+
+      card.innerHTML =
+        /* Photo column — decorative overlays hidden from screen readers */
+        '<div class="ccnc-photo-col">' +
+          photoHTML +
+          '<div class="ccnc-logo-badge" aria-hidden="true"><img src="' + CCNC_LOGO + '" alt=""></div>' +
+          '<div class="ccnc-photo-gradient" aria-hidden="true"></div>' +
+          '<div class="ccnc-photo-accent"   aria-hidden="true"></div>' +
+        '</div>' +
+        /* Content column */
+        '<div class="ccnc-content-col">' +
+          '<div class="ccnc-name-band">' +
+            /* h3 for proper heading structure (h2 = "Success Stories") */
+            '<h3 class="ccnc-name">' + s.name + '</h3>' +
+            '<p class="ccnc-tagline">' + s.tagline + '</p>' +
+            '<div class="ccnc-name-accent" aria-hidden="true"></div>' +
+          '</div>' +
+          '<div class="ccnc-content-body" tabindex="-1" role="region" aria-label="' + s.name + ' details, scrollable">' +
+            '<div class="ccnc-story-sec">' +
+              /* h4 for subsection heading */
+              '<h4 class="ccnc-sec-label">Their Story</h4>' +
+              '<p class="ccnc-story-p">' + s.story + '</p>' +
+            '</div>' +
+            '<div class="ccnc-services-sec">' +
+              '<h4 class="ccnc-sec-label">Services Provided</h4>' +
+              '<p class="ccnc-journey-title">' + s.journeyTitle + '</p>' +
+              /* Semantic <ul> so screen readers announce list size */
+              '<ul class="ccnc-svc-list' + compactClass + '">' +
+                s.services.map(function (sv) {
+                  return '<li class="ccnc-svc-item">' +
+                           '<span class="ccnc-svc-dot" aria-hidden="true"></span>' +
+                           sv +
+                         '</li>';
+                }).join('') +
+              '</ul>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      /* Click on a side card navigates to it */
+      card.addEventListener('click', function () {
+        if (parseInt(card.dataset.i) !== cur) goTo(parseInt(card.dataset.i));
+      });
+      stage.appendChild(card);
+
+      /* Dot as <button> — keyboard accessible + screen-reader friendly */
+      const dot  = document.createElement('button');
+      dot.type   = 'button';
+      dot.className = 'ccnc-dot' + (i === 0 ? ' on' : '');
+      dot.setAttribute('aria-label',   'Story ' + (i + 1) + ' of ' + total + ': ' + s.name);
+      dot.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+      dot.addEventListener('click', function () { goTo(i); });
+      dotsEl.appendChild(dot);
+    });
+
+    /* Arrow-key navigation within dot group */
+    dotsEl.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const newIdx = e.key === 'ArrowLeft'
+          ? (cur - 1 + stories.length) % stories.length
+          : (cur + 1) % stories.length;
+        goTo(newIdx);
+        dotsEl.querySelectorAll('.ccnc-dot')[cur].focus();
+      }
+    });
+
+    update();
+  }
+
+  function update() {
+    const cards = stage.querySelectorAll('.ccnc-card');
+    const dots  = dotsEl.querySelectorAll('.ccnc-dot');
+    const n     = stories.length;
+
+    cards.forEach(function (c, i) {
+      c.className = 'ccnc-card';
+      c.removeAttribute('inert');
+      const body = c.querySelector('.ccnc-content-body');
+
+      if (i === cur) {
+        /* Active: fully visible, readable, and its scrollable body joins the tab order */
+        c.classList.add('active');
+        c.removeAttribute('aria-hidden');
+        if (body) body.setAttribute('tabindex', '0');
+      } else if (i === (cur - 1 + n) % n) {
+        /* Prev peek: visible but hidden from AT, body removed from tab order */
+        c.classList.add('prev');
+        c.setAttribute('aria-hidden', 'true');
+        if (body) body.setAttribute('tabindex', '-1');
+      } else if (i === (cur + 1) % n) {
+        /* Next peek: visible but hidden from AT, body removed from tab order */
+        c.classList.add('next');
+        c.setAttribute('aria-hidden', 'true');
+        if (body) body.setAttribute('tabindex', '-1');
+      } else {
+        /* Fully off-screen: hidden from AT and marked inert */
+        c.classList.add('hidden');
+        c.setAttribute('aria-hidden', 'true');
+        c.setAttribute('inert', '');
+        if (body) body.setAttribute('tabindex', '-1');
+      }
+    });
+
+    /* Update dot pressed state */
+    dots.forEach(function (d, i) {
+      d.className = 'ccnc-dot' + (i === cur ? ' on' : '');
+      d.setAttribute('aria-pressed', i === cur ? 'true' : 'false');
+    });
+
+    /* Announce active story to screen readers via live region */
+    if (announce) {
+      announce.textContent = 'Story ' + (cur + 1) + ' of ' + n + ': ' + stories[cur].name;
+    }
+  }
+
+  function goTo(idx) {
+    cur = (idx + stories.length) % stories.length;
+    update();
+  }
+
+  document.getElementById('ccncPrev').addEventListener('click', function () { goTo(cur - 1); });
+  document.getElementById('ccncNext').addEventListener('click', function () { goTo(cur + 1); });
+
+  /* Touch swipe */
+  let tx = 0;
+  stage.addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+  stage.addEventListener('touchend',   function (e) {
+    const dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 50) goTo(dx < 0 ? cur + 1 : cur - 1);
+  });
+
+  buildCards();
+}());
+</script>
