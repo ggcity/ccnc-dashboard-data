@@ -39,6 +39,17 @@ Monday.com API → GitHub Actions (daily) → data.json → GitHub Pages → Squ
 | Veteran Data | Veteran counts by quarter |
 | Intake & Exit Data | Cumulative intakes and exits by city |
 
+## Quarterly data & fiscal year
+
+Several boards (Client Referrals to Services, Housing Exits, Senior Data, Veteran Data) report figures across `Beginning`, `Q1`, `Q2`, `Q3`, `Q4` columns for CCNC's fiscal year (July 1 – June 30). At the end of each fiscal year, the data owner rolls that year's total into `Beginning` and clears `Q1`–`Q4` for the new year — the same columns are reused every year rather than new ones being added.
+
+The dashboard embed (`squarespace-code-block-dashboard.html`) is built to handle this without any yearly code changes:
+
+- **Current quarter** is auto-detected per metric as the last of the `Q1`–`Q4` columns that actually has a value entered — not a hardcoded quarter. This also means a metric that hasn't been updated yet for the latest quarter correctly falls back to its last real reported value instead of misreading a blank cell as zero.
+- **Fiscal year label** (e.g. "Q4 2025-26") is computed from the reporting cadence, not from today's date: since a quarter is only ever entered *after* it fully closes (plus some lag), the dashboard starts from the most recently completed calendar quarter and steps backward until it matches whichever quarter actually has data — so the year label stays correct through the reporting lag around each July 1st rollover.
+
+No manual edits are needed when a new quarter or fiscal year starts reporting — the dashboard picks it up automatically the next time it loads `data.json`.
+
 ## Files
 
 | File | Description |

@@ -307,11 +307,64 @@
 
   var charts = [], currentData = null, lastWidth = window.innerWidth;
 
+  /* CCNC's fiscal year runs July 1 - June 30 (fiscal quarters: Q1=Jul-Sep,
+     Q2=Oct-Dec, Q3=Jan-Mar, Q4=Apr-Jun), labeled by its start/end calendar years
+     (e.g. "2025-26" for Jul 2025 - Jun 2026).
+
+     Data is only ever entered for a quarter AFTER it fully closes, plus some
+     lag — so "today's" in-progress calendar quarter is never what's on the
+     dashboard, and the lag can vary. To get the year label right regardless of
+     how much lag there is, start from the most recently *completed* calendar
+     quarter and step backward one quarter at a time until landing on whichever
+     quarter Monday.com actually has data for (quarterIdx, from quarterIndex()
+     below) — that quarter's own fiscal year is the correct one to show. */
+  var QUARTER_LABELS = ['Q1', 'Q2', 'Q3', 'Q4'];
+  function fyLabel(fyStart) {
+    var endYY = String((fyStart + 1) % 100);
+    if (endYY.length < 2) endYY = '0' + endYY;
+    return fyStart + '-' + endYY;
+  }
+  function fiscalPeriod(quarterIdx, today) {
+    today = today || new Date();
+    var m = today.getMonth();
+    var fyStart = m >= 6 ? today.getFullYear() : today.getFullYear() - 1;
+    var q = Math.floor(((m + 6) % 12) / 3); /* today's in-progress fiscal quarter, 0-3 */
+
+    if (quarterIdx < 0) {
+      /* Nothing reported yet this FY (e.g. right after the annual reset,
+         before this year's Q1 has been entered) — nothing to search backward
+         for, so just show the in-progress quarter as "upcoming". */
+      return { label: QUARTER_LABELS[q], year: fyLabel(fyStart) };
+    }
+
+    q -= 1; /* step back to the most recently completed quarter */
+    if (q < 0) { q = 3; fyStart -= 1; }
+    var steps = 0;
+    while (q !== quarterIdx && steps < 4) {
+      q -= 1;
+      if (q < 0) { q = 3; fyStart -= 1; }
+      steps++;
+    }
+    return { label: QUARTER_LABELS[q], year: fyLabel(fyStart) };
+  }
+
   /* ── Utilities ── */
   function n(v) { return parseFloat(v) || 0; }
   function col(item, id) {
     var c = item.column_values.find(function (x) { return x.id === id; });
     return c ? n(c.text) : 0;
+  }
+  /* Given an item and its [Q1, Q2, Q3, Q4] column ids (in that order), returns
+     the index of the last column that actually has a value entered, or -1 if
+     none do yet (e.g. right after the annual reset, before Q1 has been filled
+     in). This is how "current quarter" is auto-detected — no hardcoded quarter. */
+  function quarterIndex(item, ids) {
+    var idx = -1;
+    ids.forEach(function (id, i) {
+      var c = item.column_values.find(function (x) { return x.id === id; });
+      if (c && c.text !== '' && c.text != null) idx = i;
+    });
+    return idx;
   }
   /* Escape any dynamic string interpolated into HTML/attributes */
   function esc(s) {
@@ -466,12 +519,18 @@
       if (i.name === 'Total')   { tM = col(i, 'numeric_mktwg5hy'); tF = col(i, 'numeric_mktwkx39'); tP = col(i, 'numeric_mktwabp3'); senTot = col(i, 'numeric_mm2c103z'); vetTot = col(i, 'numeric_mm2c2wrh'); }
     });
 
-    var rCur = {}, rTot = {};
+    /* Beginning + Q1 + Q2 + Q3 + Q4, in column order, for each metric below.
+       Used both to sum the "cumulative" total and to auto-detect which of
+       Q1-Q4 is the current quarter (see quarterIndex). */
+    var REF_Q = ['numeric_mkw4dy2h', 'numeric_mkv8n71c', 'numeric_mkv8z6n5', 'numeric_mkv86cdv'];
+    var rCur = {}, rTot = {}, quarterIdx = -1;
     var b3 = B['9922062151'];
     if (b3) b3.items_page.items.forEach(function (i) {
-      var beg = col(i, 'numeric_mkw4tt6f'), q1 = col(i, 'numeric_mkw4dy2h'), q2 = col(i, 'numeric_mkv8n71c'), q3 = col(i, 'numeric_mkv8z6n5');
-      rCur[i.name] = q3;
-      rTot[i.name] = beg + q1 + q2 + q3;
+      var beg = col(i, 'numeric_mkw4tt6f'), q1 = col(i, 'numeric_mkw4dy2h'), q2 = col(i, 'numeric_mkv8n71c'), q3 = col(i, 'numeric_mkv8z6n5'), q4 = col(i, 'numeric_mkv86cdv');
+      var idx = quarterIndex(i, REF_Q);
+      if (idx > quarterIdx) quarterIdx = idx;
+      rCur[i.name] = idx >= 0 ? col(i, REF_Q[idx]) : 0;
+      rTot[i.name] = beg + q1 + q2 + q3 + q4;
     });
 
     var inc = {};
@@ -482,37 +541,56 @@
     var b5 = B['9922228941'];
     if (b5) b5.items_page.items.forEach(function (i) { hs[i.name] = col(i, 'numeric_mktwg5hy'); });
 
-    var exHousedQ3 = 0, exFamQ3 = 0, exRehabQ3 = 0;
+    var HOUSED_Q = ['numeric_mktwg5hy', 'numeric_mkty3t02', 'numeric_mktyabgh', 'numeric_mktykd6r'];
+    var FAM_Q    = ['numeric_mktwkx39', 'numeric_mktz8epc', 'numeric_mktzmb0z', 'numeric_mktzjqmp'];
+    var REHAB_Q  = ['numeric_mktwb23q', 'numeric_mktzrxdg', 'numeric_mktzc5p3', 'numeric_mktz34dk'];
+    function sum(item, ids) { return ids.reduce(function (s, id) { return s + col(item, id); }, 0); }
+    var exHousedCur = 0, exFamCur = 0, exRehabCur = 0;
     var exHousedTot = 0, exFamTot = 0, exRehabTot = 0;
     var b6 = B['9852797939'];
     if (b6) b6.items_page.items.forEach(function (i) {
       if (i.name === 'Exit Destination') {
-        exHousedQ3 = col(i, 'numeric_mktyabgh');
-        exFamQ3    = col(i, 'numeric_mktzmb0z');
-        exRehabQ3  = col(i, 'numeric_mktzc5p3');
-        exHousedTot = col(i, 'numeric_mkw4cqw7') + col(i, 'numeric_mktwg5hy') + col(i, 'numeric_mkty3t02') + exHousedQ3;
-        exFamTot    = col(i, 'numeric_mkw4c9zc') + col(i, 'numeric_mktwkx39') + col(i, 'numeric_mktz8epc') + exFamQ3;
-        exRehabTot  = col(i, 'numeric_mkw4d62n') + col(i, 'numeric_mktwb23q') + col(i, 'numeric_mktzrxdg') + exRehabQ3;
+        var hIdx = quarterIndex(i, HOUSED_Q), fIdx = quarterIndex(i, FAM_Q), rIdx = quarterIndex(i, REHAB_Q);
+        if (hIdx > quarterIdx) quarterIdx = hIdx;
+        exHousedCur = hIdx >= 0 ? col(i, HOUSED_Q[hIdx]) : 0;
+        exFamCur    = fIdx >= 0 ? col(i, FAM_Q[fIdx]) : 0;
+        exRehabCur  = rIdx >= 0 ? col(i, REHAB_Q[rIdx]) : 0;
+        exHousedTot = col(i, 'numeric_mkw4cqw7') + sum(i, HOUSED_Q);
+        exFamTot    = col(i, 'numeric_mkw4c9zc') + sum(i, FAM_Q);
+        exRehabTot  = col(i, 'numeric_mkw4d62n') + sum(i, REHAB_Q);
       }
     });
-    var housedStat = exHousedQ3 + exFamQ3;
+    var housedStat = exHousedCur + exFamCur;
 
     var age = {};
     var b7 = B['10083757239'];
     if (b7) b7.items_page.items.forEach(function (i) { age[i.name] = col(i, 'numeric_mktwg5hy'); });
 
+    /* Senior and Veteran boards share the same Q1-Q4 column ids (duplicated template). */
+    var AGE_GROUP_Q = ['numeric_mktwg5hy', 'numeric_mkvxf3kb', 'numeric_mkvxa8kj', 'numeric_mkvxq4dk'];
+
     var senCur = 0;
     var b8 = B['10083893945'];
-    if (b8) b8.items_page.items.forEach(function (i) { senCur = col(i, 'numeric_mkvxa8kj'); });
+    if (b8) b8.items_page.items.forEach(function (i) {
+      var idx = quarterIndex(i, AGE_GROUP_Q);
+      senCur = idx >= 0 ? col(i, AGE_GROUP_Q[idx]) : 0;
+    });
 
     var vetCur = 0;
     var b9 = B['10084360329'];
-    if (b9) b9.items_page.items.forEach(function (i) { vetCur = col(i, 'numeric_mkvxa8kj'); });
+    if (b9) b9.items_page.items.forEach(function (i) {
+      var idx = quarterIndex(i, AGE_GROUP_Q);
+      vetCur = idx >= 0 ? col(i, AGE_GROUP_Q[idx]) : 0;
+    });
+
+    var period = fiscalPeriod(quarterIdx);
+    var qLabel = period.label;
+    var qCaption = qLabel + ' ' + period.year;
 
     return {
       beds: beds, cM: cM, cF: cF, cP: cP, tM: tM, tF: tF, tP: tP,
-      rCur: rCur, rTot: rTot, inc: inc, hs: hs,
-      exHousedQ3: exHousedQ3, exFamQ3: exFamQ3, exRehabQ3: exRehabQ3,
+      rCur: rCur, rTot: rTot, inc: inc, hs: hs, qLabel: qLabel, qCaption: qCaption,
+      exHousedCur: exHousedCur, exFamCur: exFamCur, exRehabCur: exRehabCur,
       exHousedTot: exHousedTot, exFamTot: exFamTot, exRehabTot: exRehabTot,
       housedStat: housedStat, age: age,
       senCur: senCur, senTot: senTot, vetCur: vetCur, vetTot: vetTot,
@@ -535,9 +613,9 @@
 
     document.getElementById('ccncStatsCurrent').innerHTML = [
       stat('Total Beds',    totalBeds,      'across 3 cities'),
-      stat('Seniors (55+)', d.senCur,       'Q3 2025-26'),
-      stat('Veterans',      d.vetCur,       'Q3 2025-26'),
-      stat('Housed',        d.housedStat,   'Q3 2025-26')
+      stat('Seniors (55+)', d.senCur,       d.qCaption),
+      stat('Veterans',      d.vetCur,       d.qCaption),
+      stat('Housed',        d.housedStat,   d.qCaption)
     ].join('');
 
     document.getElementById('ccncStatsInception').innerHTML = [
@@ -548,9 +626,9 @@
     ].join('');
 
     var curExits = {}, totExits = {};
-    if (d.exHousedQ3 > 0)  curExits['Housed']               = d.exHousedQ3;
-    if (d.exFamQ3 > 0)     curExits['Family Reunification'] = d.exFamQ3;
-    if (d.exRehabQ3 > 0)   curExits['90-Day Rehab']         = d.exRehabQ3;
+    if (d.exHousedCur > 0) curExits['Housed']               = d.exHousedCur;
+    if (d.exFamCur > 0)    curExits['Family Reunification'] = d.exFamCur;
+    if (d.exRehabCur > 0)  curExits['90-Day Rehab']         = d.exRehabCur;
     if (d.exHousedTot > 0) totExits['Total Housing Exits']  = d.exHousedTot;
     if (d.exFamTot > 0)    totExits['Family Reunification'] = d.exFamTot;
     if (d.exRehabTot > 0)  totExits['90-Day Rehab']         = d.exRehabTot;
@@ -578,13 +656,13 @@
       card('Sources of Income', 'ccncIncomeChart', 'hbar',
         pairs(d.inc, CAT),
         false, 'Income sources', false) +
-      card('Referrals to Services — Q3', 'ccncRefCurChart', 'donut',
+      card('Referrals to Services — ' + d.qLabel, 'ccncRefCurChart', 'donut',
         pairs(d.rCur, CAT),
-        false, 'Q3 referrals by service type') +
+        false, d.qLabel + ' referrals by service type') +
       (Object.keys(curExits).length > 0
-        ? card('Housing Exits — Q3', 'ccncExitCurChart', 'hbar',
+        ? card('Housing Exits — ' + d.qLabel, 'ccncExitCurChart', 'hbar',
             pairs(curExits, exitColors),
-            false, 'Q3 housing exits')
+            false, d.qLabel + ' housing exits')
         : '');
 
     document.getElementById('ccncChartsC').innerHTML =
@@ -626,9 +704,9 @@
       { labels: Object.keys(d.rCur), datasets: [donutDs(Object.values(d.rCur), CAT)] }, dOpt());
 
     var curEx = {}, curCols = [];
-    if (d.exHousedQ3 > 0) { curEx['Housed'] = d.exHousedQ3; curCols.push(C1); }
-    if (d.exFamQ3 > 0)    { curEx['Family Reunification'] = d.exFamQ3; curCols.push(C2); }
-    if (d.exRehabQ3 > 0)  { curEx['90-Day Rehab'] = d.exRehabQ3; curCols.push(C3); }
+    if (d.exHousedCur > 0) { curEx['Housed'] = d.exHousedCur; curCols.push(C1); }
+    if (d.exFamCur > 0)    { curEx['Family Reunification'] = d.exFamCur; curCols.push(C2); }
+    if (d.exRehabCur > 0)  { curEx['90-Day Rehab'] = d.exRehabCur; curCols.push(C3); }
     if (Object.keys(curEx).length > 0) {
       mk('ccncExitCurChart', 'bar',
         { labels: Object.keys(curEx), datasets: [{ data: Object.values(curEx), backgroundColor: curCols, borderRadius: 4 }] }, hOpt());
