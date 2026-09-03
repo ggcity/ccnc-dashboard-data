@@ -560,7 +560,7 @@
         exRehabTot  = col(i, 'numeric_mkw4d62n') + sum(i, REHAB_Q);
       }
     });
-    var housedStat = exHousedCur + exFamCur;
+    var housedStat = exHousedCur + exFamCur + exRehabCur;
 
     var age = {};
     var b7 = B['10083757239'];
@@ -595,7 +595,7 @@
       housedStat: housedStat, age: age,
       senCur: senCur, senTot: senTot, vetCur: vetCur, vetTot: vetTot,
       totIndividuals: tM + tF,
-      totHoused: exHousedTot + exFamTot
+      totHoused: exHousedTot + exFamTot + exRehabTot
     };
   }
 
